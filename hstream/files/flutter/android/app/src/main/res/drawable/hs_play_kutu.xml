@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HStream : oynat/duraklat dugmesi - beyaz yumusak kare,
+     koyu ikon (mor gradyan daire yerine; uygulamadaki diger kare
+     dugmelerle ayni dil) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFF4F2FF" />
+    <corners android:radius="18dp" />
+</shape>

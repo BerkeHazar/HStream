@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exo_back">Zurück</string>
+    <string name="exo_audio">Tonspur</string>
+    <string name="exo_zoom">Seitenverhältnis</string>
+    <string name="hs_favori">Favorit</string>
+    <string name="hs_hiz">Wiedergabegeschwindigkeit</string>
+    <string name="hs_tamekran">Vollbild</string>
+    <string name="hs_sonraki">Nächste Folge</string>
+</resources>

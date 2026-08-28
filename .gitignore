@@ -1,0 +1,15 @@
+*.apk
+*.aab
+output/
+downloads/
+tools/
+.idea/
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.DS_Store
+Thumbs.db
+app/_fred_backup/

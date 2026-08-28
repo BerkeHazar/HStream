@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HSTREAM  - oynatici kontrol katmani (onayli mockup: hstream-oynatici-mockup.html)
+     Ust: geri + baslik/bilgi + CANLI rozeti + favori
+     Orta: -10sn / oynat-duraklat (mor gradyan) / +10sn
+     Alt kutu (): sure satiri + dugme satiri TEK blokta, en altta.
+     Davranis dugmeleri media3 tarafindan yonetilir (exo_* id'leri ayni kalir). -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <View
+        android:id="@id/exo_controls_background"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#00000000" />
+
+    <!-- alt kontrol ortusu (alt kutunun arkasi) -->
+    <View
+        android:id="@+id/hs_alt_golge"
+        android:layout_width="match_parent"
+        android:layout_height="132dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/hs_grad_alt" />
+
+    <!-- ================= UST BAR ================= -->
+    <LinearLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:background="@drawable/hs_grad_ust"
+        android:gravity="center_vertical"
+        android:minHeight="62dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp"
+        android:paddingVertical="10dp">
+
+        <ImageButton
+            android:id="@+id/back_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/hs_round_panel_odak"
+            android:contentDescription="@string/exo_back"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_exo_back"
+            android:tint="#FFC4B5FD" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/title_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/hs_meta_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#FF9AA2C4"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/hs_canli_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/hs_canli"
+            android:drawableStart="@drawable/hs_dot_beyaz"
+            android:drawablePadding="4dp"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="4dp"
+            android:text="CANLI"
+            android:textColor="#FFFFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/hs_fav_button"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/hs_round_panel_odak"
+            android:contentDescription="@string/hs_favori"
+            android:padding="9dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/hs_heart_off" />
+    </LinearLayout>
+
+    <!-- ================= ALT KUTU: sure + dugmeler (tek blok, en altta) ================= -->
+    <LinearLayout
+        android:id="@+id/hs_alt_kutu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layoutDirection="ltr"
+        android:orientation="vertical"
+        android:paddingHorizontal="14dp"
+        android:paddingBottom="10dp">
+
+        <!-- sure satiri (yalniz VOD; canlida media3 gizler) -->
+        <LinearLayout
+            android:id="@id/exo_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:gravity="center_vertical"
+            android:layoutDirection="ltr"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@id/exo_position"
+                style="@style/ExoStyledControls.TimeText.Position"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="44dp"
+                android:textColor="#FFC9CFEA"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <androidx.media3.ui.DefaultTimeBar
+                android:id="@id/exo_progress"
+                android:layout_width="0dp"
+                android:layout_height="26dp"
+                android:layout_weight="1"
+                app:bar_height="4dp"
+                app:buffered_color="#FF4D587A"
+                app:played_color="#FF7A52E0"
+                app:scrubber_color="#FFC4B5FD"
+                app:unplayed_color="#FF39415C" />
+
+            <TextView
+                android:id="@id/exo_duration"
+                style="@style/ExoStyledControls.TimeText.Duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:minWidth="44dp"
+                android:textColor="#FFC9CFEA"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- dugme satiri -->
+        <LinearLayout
+            android:id="@id/exo_basic_controls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical|end"
+            android:layoutDirection="ltr"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:layout_marginStart="8dp"
+                android:id="@+id/audio_button"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:contentDescription="@string/exo_audio"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_exo_audio"
+                android:tint="@android:color/white" />
+
+            <ImageButton
+                android:id="@id/exo_subtitle"
+                style="@style/ExoStyledControls.Button.Bottom.CC"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="0dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:tint="@android:color/white" />
+
+            <TextView
+                android:id="@+id/hs_speed_button"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingHorizontal="10dp"
+                android:text="1.0x"
+                android:textColor="#FFC9CFEA"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/zoom_button"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:contentDescription="@string/exo_zoom"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_exo_aspect_ratio"
+                android:tint="@android:color/white" />
+
+            <TextView
+                android:id="@+id/hs_next_button"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:focusable="true"
+                android:drawableStart="@drawable/hs_ileri"
+                android:drawablePadding="4dp"
+                android:gravity="center"
+                android:paddingHorizontal="10dp"
+                android:text="SONRAKİ BÖLÜM"
+                android:textColor="#FFFFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <ImageButton
+                android:id="@+id/hs_fullscreen_button"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:contentDescription="@string/hs_tamekran"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/hs_fullscreen" />
+
+            <TextView
+                android:id="@+id/hs_quality_text"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_chip"
+                android:gravity="center"
+                android:paddingHorizontal="10dp"
+                android:textColor="#FFC9CFEA"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/hs_position_text"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_chip"
+                android:gravity="center"
+                android:paddingHorizontal="10dp"
+                android:textColor="#FFC9CFEA"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- ================= ORTA KONTROLLER ================= -->
+    <LinearLayout
+        android:id="@id/exo_center_controls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@android:color/transparent"
+        android:clipToPadding="false"
+        android:gravity="center"
+        android:padding="@dimen/exo_styled_controls_padding"
+        android:layoutDirection="ltr">
+
+        <Button
+            android:id="@id/exo_rew_with_amount"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/hs_circle_koyu_odak"
+            android:drawableTop="@drawable/hs_geri10"
+            android:drawablePadding="0dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="9dp"
+            android:paddingBottom="6dp"
+            android:textColor="#FFC9CFEA"
+            android:textSize="8sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@id/exo_play_pause"
+            style="@style/ExoStyledControls.Button.Center.PlayPause"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_marginEnd="26dp"
+            android:layout_marginStart="26dp"
+            android:background="@drawable/hs_circle_cam_odak"
+            android:padding="14dp"
+            android:tint="#FFFFFFFF" />
+
+        <Button
+            android:id="@id/exo_ffwd_with_amount"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@drawable/hs_circle_koyu_odak"
+            android:drawableTop="@drawable/hs_ileri10"
+            android:drawablePadding="0dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="9dp"
+            android:paddingBottom="6dp"
+            android:textColor="#FFC9CFEA"
+            android:textSize="8sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</merge>

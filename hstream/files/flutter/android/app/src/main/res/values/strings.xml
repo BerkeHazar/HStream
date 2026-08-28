@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exo_back">Geri</string>
+    <string name="exo_audio">Ses parçası</string>
+    <string name="exo_zoom">En-boy oranı</string>
+    <string name="hs_favori">Favori</string>
+    <string name="hs_hiz">Oynatma hızı</string>
+    <string name="hs_tamekran">Tam ekran</string>
+    <string name="hs_sonraki">Sonraki bölüm</string>
+</resources>

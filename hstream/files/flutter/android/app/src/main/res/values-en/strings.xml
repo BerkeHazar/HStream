@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exo_back">Back</string>
+    <string name="exo_audio">Audio track</string>
+    <string name="exo_zoom">Aspect ratio</string>
+    <string name="hs_favori">Favorite</string>
+    <string name="hs_hiz">Playback speed</string>
+    <string name="hs_tamekran">Fullscreen</string>
+    <string name="hs_sonraki">Next episode</string>
+</resources>

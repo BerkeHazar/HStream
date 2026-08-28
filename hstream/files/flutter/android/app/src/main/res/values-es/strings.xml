@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exo_back">Atrás</string>
+    <string name="exo_audio">Pista de audio</string>
+    <string name="exo_zoom">Relación de aspecto</string>
+    <string name="hs_favori">Favorito</string>
+    <string name="hs_hiz">Velocidad</string>
+    <string name="hs_tamekran">Pantalla completa</string>
+    <string name="hs_sonraki">Siguiente episodio</string>
+</resources>

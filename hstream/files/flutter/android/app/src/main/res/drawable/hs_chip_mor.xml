@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HStream: yazi rozeti - aktif (mor) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="#FF7A52E0"
+        android:endColor="#FF5642D6" />
+    <corners android:radius="10dp" />
+</shape>
