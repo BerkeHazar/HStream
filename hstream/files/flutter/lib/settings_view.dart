@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:open_tv/native_bridge.dart';
 import 'package:open_tv/nsfw.dart';
+import 'package:open_tv/player_preferences.dart';
 import 'package:open_tv/son_izlenen.dart';
 import 'package:open_tv/l10n.dart';
 import 'package:open_tv/xtream_bilgi.dart';
@@ -14,6 +15,11 @@ import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/source_type.dart';
 import 'package:open_tv/models/sort_type.dart';
 import 'package:open_tv/error.dart';
+// : Hakkında ekranı (sürüm / lisans / kaynak / yenilikler / güncelleme)
+import 'package:open_tv/hstream_hakkinda.dart';
+import 'package:open_tv/hstream_route.dart';
+// : kaynak satırındaki kompakt aksiyon düğmeleri marka rengini kullanır
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/setup.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -57,14 +63,22 @@ class _SettingsState extends State<SettingsView> {
   }
 
   Future<void> _xtreamCek() async {
-    for (final kaynak in sources) {
-      if (kaynak.sourceType != SourceType.xtream || kaynak.id == null) continue;
-      final b = await xtreamBilgiCek(kaynak);
-      if (!mounted || b == null) continue;
-      setState(() {
-        xtreamBilgiler[kaynak.id!] = b;
-      });
-    }
+    final hedefler = sources
+        .where((k) => k.sourceType == SourceType.xtream && k.id != null)
+        .toList();
+    if (hedefler.isEmpty) return;
+    // PERFORMANS: Önceden her kaynak için SIRAYLA istek atılıyordu (N kaynak =
+    // N kez bekleme) ve her sonuçta ayrı setState çağrılıyordu (N kez tam
+    // yeniden çizim). Artık istekler paralel, tek setState.
+    final sonuclar = await Future.wait(
+      hedefler.map((k) async => MapEntry(k.id!, await xtreamBilgiCek(k))),
+    );
+    if (!mounted) return;
+    setState(() {
+      for (final s in sonuclar) {
+        if (s.value != null) xtreamBilgiler[s.key] = s.value!;
+      }
+    });
   }
 
   String _dilEtiket() {
@@ -123,7 +137,77 @@ class _SettingsState extends State<SettingsView> {
     );
   }
 
-  Future<void> showEditDialog(BuildContext context, final Source source) async {
+  // : tampon (buffer) süresi seçimi — donan IPTV yayınları için.
+  Future<void> _tamponSec(BuildContext context) async {
+    final secenekler = PlayerPreferences.tamponSecenekler;
+    await showDialog<void>(
+      barrierDismissible: true,
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(L.t('tampon')),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final sn in secenekler)
+                  ListTile(
+                    title: Text(
+                      L.t('tampon_sn').replaceFirst('%s', sn.toString()),
+                    ),
+                    selected: PlayerPreferences.tamponSn == sn,
+                    onTap: () async {
+                      Navigator.of(ctx).pop();
+                      await PlayerPreferences.tamponAyarla(sn);
+                      if (!mounted) return;
+                      setState(() {});
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // : altyazı boyutu seçimi — TV'de varsayılan kocaman kalıyordu.
+  Future<void> _altyaziBoyutSec(BuildContext context) async {
+    final secenekler = PlayerPreferences.altyaziSecenekler;
+    await showDialog<void>(
+      barrierDismissible: true,
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(L.t('altyazi_boyut')),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final sp in secenekler)
+                  ListTile(
+                    title: Text(
+                      L.t('altyazi_sp').replaceFirst('%s', sp.toString()),
+                    ),
+                    selected: PlayerPreferences.altyaziSp == sp,
+                    onTap: () async {
+                      Navigator.of(ctx).pop();
+                      await PlayerPreferences.altyaziAyarla(sp);
+                      if (!mounted) return;
+                      setState(() {});
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> showEditDialog(BuildContext context, Source source) async {
     await showDialog(
       barrierDismissible: true,
       context: context,
@@ -183,10 +267,19 @@ class _SettingsState extends State<SettingsView> {
       ),
       elevation: 5,
       child: ListTile(
-        leading: Icon(source.enabled ? Icons.tv : Icons.tv_off),
-        horizontalTitleGap: 25,
+        // : KAYNAK SATIRI DARLIĞI DÜZELTMESİ —
+        // Önceden burada üç adet VARSAYILAN `IconButton` vardı. Her biri
+        // 48dp dokunma alanı + 8dp iç boşluk = ~64dp ister; üçü birlikte
+        // ~192dp'yi yalnızca sağ tarafta tüketiyordu. Dar telefonlarda
+        // başlık/alt başlık ezilip "…" oluyor, satır sıkışmış görünüyordu.
+        // Çözüm: özel `_kaynakAksiyon` düğmesi (36dp dokunma alanı,
+        // 4dp boşluk → ~40dp/adet). Üç düğme ~120dp'ye iner ve başlığa
+        // ~70dp daha fazla yer kalır. `tvMode`da zaten en çok iki düğme
+        // göründüğü için her iki düzen de rahatlar.
+        leading: Icon(source.enabled ? Icons.tv_rounded : Icons.tv_off_rounded),
+        horizontalTitleGap: 16,
         onLongPress: () => toggleSource(source),
-        contentPadding: const EdgeInsets.only(left: 20),
+        contentPadding: const EdgeInsets.only(left: 16, right: 4),
         title: Text(source.name),
         subtitle: Text(
           [
@@ -201,9 +294,10 @@ class _SettingsState extends State<SettingsView> {
           children: [
             Offstage(
               offstage: source.sourceType == SourceType.m3u,
-              child: IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () async {
+              child: _kaynakAksiyon(
+                ikon: Icons.refresh_rounded,
+                ipucu: L.t("kaynak_yenilendi"),
+                onTap: () async {
                   await Error.tryAsync(
                     () async {
                       await NativeBridge.instance.refreshSource(source);
@@ -217,16 +311,50 @@ class _SettingsState extends State<SettingsView> {
             Offstage(
               offstage:
                   source.sourceType == SourceType.m3u || widget.tvMode,
-              child: IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () async => await showEditDialog(context, source),
+              child: _kaynakAksiyon(
+                ikon: Icons.edit_rounded,
+                ipucu: L.t("kaynak_duzenle"),
+                onTap: () async => await showEditDialog(context, source),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () async => await showConfirmDeleteDialog(source),
+            _kaynakAksiyon(
+              ikon: Icons.delete_rounded,
+              ipucu: L.t("sil"),
+              tehlike: true,
+              onTap: () async => await showConfirmDeleteDialog(source),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // : Kaynak satırındaki kompakt aksiyon düğmesi.
+  // `IconButton`ın varsayılan dokunma alanı 48dp + 8dp iç boşluk = ~64dp;
+  // üçü birlikte sağdan ~192dp yiyordu ve dar telefonlarda başlığı
+  // "…" hâline getiriyordu. 36dp hâlâ ergonomik (Material'ın önerdiği en
+  // küçük hedef 36dp) ve üç düğmeyi ~120dp'ye indirir. Renk de nötr beyaz
+  // yerine markaya çekildi: satır artık tekdüze bir ikon yığını gibi
+  // görünmüyor, hiyerarşi net (sil = soluk, diğerleri = vurgulu).
+  Widget _kaynakAksiyon({
+    required IconData ikon,
+    required String ipucu,
+    required VoidCallback onTap,
+    bool tehlike = false,
+  }) {
+    return Tooltip(
+      message: ipucu,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 20,
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(
+            ikon,
+            size: 20,
+            color: tehlike ? P.textTertiary : P.brandLight,
+          ),
         ),
       ),
     );
@@ -448,6 +576,47 @@ class _SettingsState extends State<SettingsView> {
                   },
                 ),
                 const Divider(),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
+                  child: Text(
+                    L.t('oynatici'),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.memory_rounded),
+                  title: Text(L.t("tampon")),
+                  subtitle: Text(
+                    L.t("tampon_sub").replaceFirst(
+                      '%s',
+                      PlayerPreferences.tamponSn.toString(),
+                    ),
+                  ),
+                  onTap: () => _tamponSec(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.subtitles_rounded),
+                  title: Text(L.t("altyazi_boyut")),
+                  subtitle: Text(
+                    L.t("altyazi_boyut_sub").replaceFirst(
+                      '%s',
+                      PlayerPreferences.altyaziSp.toString(),
+                    ),
+                  ),
+                  onTap: () => _altyaziBoyutSec(context),
+                ),
+                SwitchListTile(
+                  secondary: const Icon(Icons.picture_in_picture_alt_rounded),
+                  title: Text(L.t("pip")),
+                  subtitle: Text(L.t("pip_sub")),
+                  value: PlayerPreferences.pipAcik,
+                  onChanged: (bool value) async {
+                    await PlayerPreferences.pipAyarla(value);
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                ),
+                const Divider(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -470,7 +639,7 @@ class _SettingsState extends State<SettingsView> {
                             context,
                             L.t("kaynaklar_yenilendi"),
                           ),
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(Icons.refresh_rounded),
                           tooltip: L.t('tumunu_yenile'),
                         ),
                         IconButton(
@@ -483,7 +652,7 @@ class _SettingsState extends State<SettingsView> {
                               ),
                             ),
                           ),
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(Icons.add_rounded),
                           tooltip: L.t('kaynak_ekle'),
                         ),
                       ],
@@ -493,6 +662,22 @@ class _SettingsState extends State<SettingsView> {
                 const SizedBox(height: 10),
                 ...sources.map(getSource),
                 const Divider(),
+                // : HAKKINDA — sürüm, lisans, kaynak kodu, yenilikler ve
+                // güncelleme denetimi. GitHub satırından ÖNCE gelir çünkü
+                // kullanıcı önce "hangi sürümdeyim / güncelleme var mı"
+                // sorusunun cevabını arar.
+                ListTile(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: Text(L.t("hakkinda")),
+                  subtitle: Text(L.t("hakkinda_sub")),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.push(
+                    context,
+                    HStreamPageRoute(
+                      builder: (_) => const HStreamHakkinda(),
+                    ),
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.code_rounded),
                   title: Text(L.t("github")),
@@ -529,7 +714,7 @@ class _SettingsState extends State<SettingsView> {
         ),
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded),
           tooltip: L.t('geri'),
           onPressed: () {
             if (Navigator.of(context).canPop()) {

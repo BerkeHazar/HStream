@@ -249,7 +249,7 @@ class _PlayerState extends State<Player> {
       topButtonBar: [
         IconButton(
           onPressed: onExit,
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 10),
         Text(widget.channel.name),
@@ -257,17 +257,17 @@ class _PlayerState extends State<Player> {
       bottomButtonBar: [
         IconButton(
           onPressed: openSubtitlesModal,
-          icon: const Icon(Icons.subtitles, color: Colors.white, size: 32),
+          icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 20),
         IconButton(
           onPressed: openAudioModal,
-          icon: const Icon(Icons.music_note, color: Colors.white, size: 32),
+          icon: const Icon(Icons.music_note_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 20),
         IconButton(
           icon: const Icon(
-            Icons.aspect_ratio_outlined,
+            Icons.aspect_ratio_rounded,
             color: Colors.white,
             size: 32,
           ),
@@ -295,7 +295,7 @@ class _PlayerState extends State<Player> {
       topButtonBar: [
         IconButton(
           onPressed: onExit,
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 32),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 10),
         Text(widget.channel.name),
@@ -303,17 +303,17 @@ class _PlayerState extends State<Player> {
       bottomButtonBar: [
         IconButton(
           onPressed: openSubtitlesModal,
-          icon: const Icon(Icons.subtitles, color: Colors.white, size: 32),
+          icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 20),
         IconButton(
           onPressed: openAudioModal,
-          icon: const Icon(Icons.music_note, color: Colors.white, size: 32),
+          icon: const Icon(Icons.music_note_rounded, color: Colors.white, size: 32),
         ),
         const SizedBox(width: 20),
         IconButton(
           icon: const Icon(
-            Icons.aspect_ratio_outlined,
+            Icons.aspect_ratio_rounded,
             color: Colors.white,
             size: 32,
           ),

@@ -11,7 +11,7 @@
         android:id="@id/exo_controls_background"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:background="#00000000" />
+        android:background="@android:color/transparent" />
 
     <!-- alt kontrol ortusu (alt kutunun arkasi) -->
     <View
@@ -43,7 +43,7 @@
             android:padding="9dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_exo_back"
-            android:tint="#FFC4B5FD" />
+            android:tint="@color/hs_brand_light" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -58,8 +58,8 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="#FFFFFFFF"
-                android:textSize="15sp"
+                android:textColor="@color/hs_text_primary"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -68,8 +68,8 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:textColor="#FF9AA2C4"
-                android:textSize="11sp"
+                android:textColor="@color/hs_text_secondary"
+                android:textSize="12sp"
                 android:visibility="gone" />
         </LinearLayout>
 
@@ -84,8 +84,8 @@
             android:paddingHorizontal="9dp"
             android:paddingVertical="4dp"
             android:text="CANLI"
-            android:textColor="#FFFFFFFF"
-            android:textSize="9sp"
+            android:textColor="@color/hs_text_primary"
+            android:textSize="12sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -127,8 +127,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="44dp"
-                android:textColor="#FFC9CFEA"
-                android:textSize="11sp"
+                android:textColor="@color/hs_text_secondary"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <androidx.media3.ui.DefaultTimeBar
@@ -137,10 +137,10 @@
                 android:layout_height="26dp"
                 android:layout_weight="1"
                 app:bar_height="4dp"
-                app:buffered_color="#FF4D587A"
-                app:played_color="#FF7A52E0"
-                app:scrubber_color="#FFC4B5FD"
-                app:unplayed_color="#FF39415C" />
+                app:buffered_color="@color/hs_progress_buffered"
+                app:played_color="@color/hs_progress_played"
+                app:scrubber_color="@color/hs_brand_light"
+                app:unplayed_color="@color/hs_progress_unplayed" />
 
             <TextView
                 android:id="@id/exo_duration"
@@ -149,8 +149,8 @@
                 android:layout_height="wrap_content"
                 android:gravity="end"
                 android:minWidth="44dp"
-                android:textColor="#FFC9CFEA"
-                android:textSize="11sp"
+                android:textColor="@color/hs_text_secondary"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -175,31 +175,22 @@
                 android:src="@drawable/ic_exo_audio"
                 android:tint="@android:color/white" />
 
+            <!-- : KENDI ALTYAZI DUGMEMIZ — media3'un varsayilan CC
+                 dugmesi
+                 TrackSelectionDialog'u ekranin sag alt kosesine aciyordu.
+                 Bu dugme ozel ORTALANMIS altyazi secim diyalogunu acar.
+                 Ikon ayni (CC); davranis Kotlin'de baglanir. -->
             <ImageButton
-                android:id="@id/exo_subtitle"
-                style="@style/ExoStyledControls.Button.Bottom.CC"
+                android:id="@+id/hs_subtitle_button"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:layout_marginStart="8dp"
-                android:layout_marginEnd="0dp"
                 android:background="@drawable/hs_round_panel_odak"
+                android:contentDescription="@string/hs_altyazi"
                 android:padding="9dp"
                 android:scaleType="fitCenter"
+                android:src="@drawable/hs_altyazi"
                 android:tint="@android:color/white" />
-
-            <TextView
-                android:id="@+id/hs_speed_button"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/hs_round_panel_odak"
-                android:focusable="true"
-                android:gravity="center"
-                android:paddingHorizontal="10dp"
-                android:text="1.0x"
-                android:textColor="#FFC9CFEA"
-                android:textSize="11sp"
-                android:textStyle="bold" />
 
             <ImageButton
                 android:id="@+id/zoom_button"
@@ -213,23 +204,6 @@
                 android:src="@drawable/ic_exo_aspect_ratio"
                 android:tint="@android:color/white" />
 
-            <TextView
-                android:id="@+id/hs_next_button"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/hs_round_panel_odak"
-                android:focusable="true"
-                android:drawableStart="@drawable/hs_ileri"
-                android:drawablePadding="4dp"
-                android:gravity="center"
-                android:paddingHorizontal="10dp"
-                android:text="SONRAKİ BÖLÜM"
-                android:textColor="#FFFFFFFF"
-                android:textSize="9sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-
             <ImageButton
                 android:id="@+id/hs_fullscreen_button"
                 android:layout_width="42dp"
@@ -241,6 +215,19 @@
                 android:scaleType="fitCenter"
                 android:src="@drawable/hs_fullscreen" />
 
+            <!-- : "daha fazla" menusu (⋯) - hiz, sonraki bolum, uyku, pip burada -->
+            <ImageButton
+                android:id="@+id/hs_more_button"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/hs_round_panel_odak"
+                android:contentDescription="@string/hs_daha_fazla"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_exo_more"
+                android:tint="@color/hs_text_primary" />
+
             <TextView
                 android:id="@+id/hs_quality_text"
                 android:layout_width="wrap_content"
@@ -249,8 +236,8 @@
                 android:background="@drawable/hs_chip"
                 android:gravity="center"
                 android:paddingHorizontal="10dp"
-                android:textColor="#FFC9CFEA"
-                android:textSize="11sp"
+                android:textColor="@color/hs_text_secondary"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
 
@@ -262,8 +249,8 @@
                 android:background="@drawable/hs_chip"
                 android:gravity="center"
                 android:paddingHorizontal="10dp"
-                android:textColor="#FFC9CFEA"
-                android:textSize="11sp"
+                android:textColor="@color/hs_text_secondary"
+                android:textSize="12sp"
                 android:textStyle="bold"
                 android:visibility="gone" />
         </LinearLayout>
@@ -286,7 +273,7 @@
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="@drawable/hs_circle_koyu_odak"
-            android:drawableTop="@drawable/hs_geri10"
+            android:drawableTop="@drawable/hs_geri_ok"
             android:drawablePadding="0dp"
             android:gravity="center"
             android:includeFontPadding="false"
@@ -294,8 +281,8 @@
             android:minHeight="0dp"
             android:paddingTop="9dp"
             android:paddingBottom="6dp"
-            android:textColor="#FFC9CFEA"
-            android:textSize="8sp"
+            android:textColor="@color/hs_text_secondary"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <ImageButton
@@ -307,14 +294,14 @@
             android:layout_marginStart="26dp"
             android:background="@drawable/hs_circle_cam_odak"
             android:padding="14dp"
-            android:tint="#FFFFFFFF" />
+            android:tint="@color/hs_text_primary" />
 
         <Button
             android:id="@id/exo_ffwd_with_amount"
             android:layout_width="52dp"
             android:layout_height="52dp"
             android:background="@drawable/hs_circle_koyu_odak"
-            android:drawableTop="@drawable/hs_ileri10"
+            android:drawableTop="@drawable/hs_ileri_ok"
             android:drawablePadding="0dp"
             android:gravity="center"
             android:includeFontPadding="false"
@@ -322,8 +309,8 @@
             android:minHeight="0dp"
             android:paddingTop="9dp"
             android:paddingBottom="6dp"
-            android:textColor="#FFC9CFEA"
-            android:textSize="8sp"
+            android:textColor="@color/hs_text_secondary"
+            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 </merge>

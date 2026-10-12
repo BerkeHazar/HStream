@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  HStream renk paleti — Android tarafı.
+
+  DART KARŞILIĞI: lib/palet.dart
+  İKİ DOSYA EŞLEŞMEK ZORUNDADIR. Bir renk değişirse iki yerde de güncellenmeli.
+
+  Oynatıcı kontrol katmanı (custom_player_control_view.xml) ve Kotlin tarafı
+  sabit hex yerine bu kaynakları kullanır.
+-->
+<resources>
+
+    <!-- ==================== Zemin katmanları ==================== -->
+    <color name="hs_bg">#FF0A0A16</color>
+    <color name="hs_surface">#FF141826</color>
+    <color name="hs_surface_raised">#FF1D2130</color>
+    <color name="hs_outline">#1AFFFFFF</color>
+
+    <!-- ==================== Marka — tek aile ==================== -->
+    <color name="hs_brand">#FF6A4FE0</color>
+    <color name="hs_brand_light">#FFA78BFA</color>
+    <color name="hs_brand_dark">#FF4632C0</color>
+
+    <!-- ==================== Metin ==================== -->
+    <color name="hs_text_primary">#FFFFFFFF</color>
+    <color name="hs_text_secondary">#FFAEB6D6</color>
+    <color name="hs_text_tertiary">#FF8B93B5</color>
+
+    <!-- Pasif ikon (boş kalp, kapalı durum) — metin ikincil renginin %50 saydam hâli -->
+    <color name="hs_ikon_pasif">#80AEB6D6</color>
+
+    <!-- CANLI rozeti (canlı yayın etiketi) -->
+    <color name="hs_rozet_canli">#FFE11D48</color>
+
+    <!-- ==================== Oynatıcı ==================== -->
+    <color name="hs_player_overlay">#9E000000</color>
+    <color name="hs_player_scrim">#D90A0A16</color>
+    <color name="hs_progress_played">#FFA78BFA</color>
+    <color name="hs_progress_buffered">#3DFFFFFF</color>
+    <color name="hs_progress_unplayed">#24FFFFFF</color>
+    <color name="hs_progress_thumb">#FFFFFFFF</color>
+
+    <!-- ==================== Bölüm kartları (sessiz/derin) ==================== -->
+    <color name="hs_canli_dolgu">#FF1B1B30</color>
+    <color name="hs_canli_ikon">#FFA78BFA</color>
+    <color name="hs_film_dolgu">#FF251A1A</color>
+    <color name="hs_film_ikon">#FFF0917A</color>
+    <color name="hs_dizi_dolgu">#FF16202F</color>
+    <color name="hs_dizi_ikon">#FF7FB3F5</color>
+    <color name="hs_favori_dolgu">#FF241A22</color>
+    <color name="hs_favori_ikon">#FFEE8FB8</color>
+
+</resources>

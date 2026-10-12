@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io' show Platform;
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:fixnum/fixnum.dart';
@@ -21,8 +22,12 @@ class NativeBridge {
 
   final ffi.RustLibBindings _bindings;
   int _nextTaskId = 0;
-  final Map<int, Completer<pb.FFIResult>> _pendingRequests = {};
+  final Map<int, Completer<Uint8List>> _pendingRequests = {};
   late final NativeCallable<Void Function(Uint64, Pointer<Uint8>, Size)> _globalCallback;
+
+  /// Bu boyutun üstündeki yanıtlar arka isolate'te çözülür. Küçük yanıtlarda
+  /// isolate kurulumu çözümlemeden pahalı olduğu için ana isolate'te kalır.
+  static const int _arkaIsolateEsik = 32 * 1024;
 
   static NativeBridge get instance => _instance ??= NativeBridge._internal(
     ffi.RustLibBindings(_openDynamicLibrary()),
@@ -47,16 +52,16 @@ class NativeBridge {
         final completer = _pendingRequests.remove(taskId);
         if (completer == null) return;
 
+        // PERFORMANS: Burada yalnızca kopyalama yapılır. Protobuf çözümlemesi
+        // _executeAsync'e bırakılır; büyük yanıtlar arka isolate'te çözülür.
         try {
           final Uint8List copiedBytes;
           try {
-            final u8List = ptr.asTypedList(len);
-            copiedBytes = Uint8List.fromList(u8List);
+            copiedBytes = Uint8List.fromList(ptr.asTypedList(len));
           } finally {
             _bindings.free_message(ptr, len);
           }
-          final result = pb.FFIResult.fromBuffer(copiedBytes);
-          completer.complete(result);
+          completer.complete(copiedBytes);
         } catch (e, stackTrace) {
           completer.completeError(e, stackTrace);
         }
@@ -68,14 +73,32 @@ class NativeBridge {
     void Function(int taskId, ffi.FfiCallback callback) ffiAction,
   ) async {
     final taskId = _nextTaskId++;
-    final completer = Completer<pb.FFIResult>();
+    final completer = Completer<Uint8List>();
     _pendingRequests[taskId] = completer;
     ffiAction(taskId, _globalCallback.nativeFunction);
-    final result = await completer.future;
+    final bytes = await completer.future;
+    final result = await _coz(bytes);
     if (!result.success) {
       throw Exception(result.hasErrorMessage() ? result.errorMessage : "Unknown FFI error");
     }
     return result;
+  }
+
+  /// Protobuf çözümlemesi. Büyük yanıtlarda (kanal listeleri) arka isolate'e
+  /// taşınır; aksi hâlde binlerce kaydın çözümü ana isolate'i bloklar ve
+  /// liste açılırken arayüz takılır.
+  ///
+  /// Arka isolate herhangi bir sebeple kullanılamazsa ana isolate'e düşülür —
+  /// optimizasyon kaybedilir ama **işlevsellik bozulmaz**.
+  Future<pb.FFIResult> _coz(Uint8List bytes) async {
+    if (bytes.length < _arkaIsolateEsik) {
+      return pb.FFIResult.fromBuffer(bytes);
+    }
+    try {
+      return await Isolate.run(() => pb.FFIResult.fromBuffer(bytes));
+    } catch (_) {
+      return pb.FFIResult.fromBuffer(bytes);
+    }
   }
 
   Future<pb.FFIResult> _executeWithMsg<T extends $pb.GeneratedMessage>(

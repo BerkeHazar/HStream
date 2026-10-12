@@ -1,0 +1,108 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+// HStream: optional release signing. Put a key.properties next to this app
+// module (or at the Fred TV root) to sign release builds with your own key.
+// Without it, release builds keep using the debug key (same as upstream).
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+def hasReleaseKeystore = false
+
+// : IMZALAMA ANAHTARI DOSYASI — `key.properties` Java .properties formatidir ve
+// orada ters bolu (\) KACIS karakteridir. Windows yolu tek ters bolu ile
+// yazilirsa deger okunurken bozulur ("C:\Users\..." -> "C:Users...") ve Gradle
+// "Keystore file ... not found for signing config 'release'" diyerek derlemeyi
+// durdurur. Bu yuzden yol once normalize edilir (duz bolu); yine bulunamazsa
+// proje kokundeki standart konuma dusulur — bu projede anahtarin tek yeri
+// orasidir, yanlis bir yol yuzunden derleme bosuna durmasin.
+def releaseStoreFile = null
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    def hamYol = keystoreProperties["storeFile"]
+    if (hamYol != null && keystoreProperties["keyAlias"] != null) {
+        hasReleaseKeystore = true
+        releaseStoreFile = file(hamYol.toString().replace('\\', '/'))
+        if (!releaseStoreFile.exists()) {
+            def standart = rootProject.file("../../../keys/hstream-release.jks")
+            if (standart.exists()) {
+                logger.warn("HStream: key.properties icindeki storeFile bulunamadi (" +
+                        "${hamYol}); standart anahtar kullaniliyor: ${standart}")
+                releaseStoreFile = standart
+            }
+        }
+    }
+}
+
+android {
+    // namespace stays as upstream on purpose: it defines the generated R class
+    // and resolves ".MainActivity" in AndroidManifest.xml. Only applicationId
+    // is HStream's own identity.
+    namespace = "dev.fredol.open_tv"
+    compileSdk = 36
+    ndkVersion = "29.0.14206865"
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = '11'
+    }
+
+    defaultConfig {
+        // HStream's own application ID. Must differ from Fred TV's
+        // "dev.fredol.open_tv" so the two apps install side by side and the
+        // store no longer identifies HStream as the original Open TV.
+        applicationId = "io.github.berkehazar.hstream"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                // : yukarida normalize edilmis / standart konuma dusulmus yol
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties["storePassword"]
+                // HStream: storeType is written by hstream/keystore.bat so the
+                // build never has to guess. keytool on JDK 9+ creates a PKCS12
+                // file even when the name ends in .jks; without this line the
+                // type depends on the JDK running Gradle. An existing JKS file
+                // still works: set storeType=jks in keys/key.properties.
+                storeType = keystoreProperties["storeType"] ?: "pkcs12"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Use a stable release key when available, otherwise fall back to
+            // the debug key so `flutter build apk --release` still works.
+            signingConfig = hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+
+dependencies {
+    def media3_version = "1.4.1"
+    // Native ExoPlayer path (Android only; other platforms use media_kit).
+    implementation "androidx.media3:media3-exoplayer:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-hls:$media3_version"
+    implementation "androidx.media3:media3-exoplayer-dash:$media3_version"
+    implementation "androidx.media3:media3-datasource:$media3_version"
+    implementation "androidx.media3:media3-ui:$media3_version"
+}

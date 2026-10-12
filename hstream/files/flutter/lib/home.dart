@@ -16,6 +16,7 @@ import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/models/sort_type.dart';
 import 'package:open_tv/models/view_type.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/settings_view.dart';
 import 'package:open_tv/error.dart';
@@ -418,7 +419,7 @@ class _HomeState extends State<Home> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF5642D6), Color(0xFF7A52E0)],
+              colors: [P.brandDark, P.brand],
             ),
           ),
           child: Column(
@@ -513,7 +514,7 @@ class _HomeState extends State<Home> {
                                     context,
                                   ).textTheme.titleMedium?.fontSize!,
                                 ),
-                                prefixIcon: const Icon(Icons.search),
+                                prefixIcon: const Icon(Icons.search_rounded),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide.none,
@@ -530,15 +531,15 @@ class _HomeState extends State<Home> {
                                       },
                                       icon: Icon(
                                         widget.home.filters.useKeywords
-                                            ? Icons.label
-                                            : Icons.label_outline,
+                                            ? Icons.label_rounded
+                                            : Icons.label_outline_rounded,
                                       ),
                                       tooltip: L.t('kelime_ara'),
                                     ),
                                     IconButton(
                                       focusNode: _sortFocusNode,
                                       onPressed: showSortDialog,
-                                      icon: const Icon(Icons.sort),
+                                      icon: const Icon(Icons.sort_rounded),
                                       tooltip: L.t('siralama'),
                                     ),
                                   ],
@@ -610,7 +611,7 @@ class _HomeState extends State<Home> {
               automaticallyImplyLeading: !widget.tvMode,
               leading: !widget.tvMode
                   ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(Icons.arrow_back_rounded),
                       tooltip: L.t('geri'),
                       onPressed: () => Navigator.of(context).pop(),
                     )
@@ -628,7 +629,7 @@ class _HomeState extends State<Home> {
                   onPressed: scrollToTop,
                   shape: const CircleBorder(),
                   tooltip: L.t('yukari'),
-                  child: const Icon(Icons.arrow_upward),
+                  child: const Icon(Icons.arrow_upward_rounded),
                 ),
               ),
             )

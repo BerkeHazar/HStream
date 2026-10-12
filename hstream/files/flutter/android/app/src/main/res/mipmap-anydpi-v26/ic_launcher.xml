@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- HSTREAM : uyarlanabilir (adaptive) uygulama ikonu.
+     SORUN: on plan (foreground) gorseli 108dp tuvalin ~%62-67'sini
+     kapliyordu. Android'in "guvenli alan" (safe zone) kurali, on planin
+     YALNIZCA merkezdeki %66'lik daire icinde KALMASINI gerektirir; ustune
+     bir de sistem maskesi (daire/squircle) kenarlardan kirpar. Logo tam
+     sinirda durdugu icin uygulama ikonu "fazla buyuk" gorunuyordu.
+     COZUM: <inset> ile on plani %18 kucultup guvenli alanin icine cekiyoruz
+     (108dp * 0.18 = ~19dp kenar boslugu). Boylece logo maskeye degmeden,
+     dengeli bir boyutta gorunur. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_foreground"
+            android:inset="18%" />
+    </foreground>
 </adaptive-icon>

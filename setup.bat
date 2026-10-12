@@ -207,9 +207,17 @@ echo [ok] Perl
 exit /b 0
 
 :KAYNAK_INDIR
-if exist "%APP%\flutter\pubspec.yaml" (
+:: : kaynak TAM mi diye bakilir. Eski kontrol yalnizca flutter\pubspec.yaml
+:: ariyordu; yarim kalmis/artik bir app\ klasoru (orn. yalniz flutter iceren)
+:: "hazir" sanilip indirme atlaniyordu -> Rust tarafi (src\, Cargo.toml) eksik
+:: kaliyordu ve apply.bat "[error] sql.rs" ile patliyordu. Artik uc dosya da
+:: aranir: flutter + Cargo.toml + src\lib.rs
+if exist "%APP%\flutter\pubspec.yaml" if exist "%APP%\Cargo.toml" if exist "%APP%\src\lib.rs" (
     echo [ok] Source
     exit /b 0
+)
+if exist "%APP%\flutter\pubspec.yaml" (
+    echo [warn] Eksik kaynak algilandi - yeniden indiriliyor.
 )
 :KAYNAK_YENILE
 echo [source] Fred TV
@@ -233,8 +241,17 @@ if errorlevel 1 (
     exit /b 1
 )
 :KAYNAK_OK
+:: : uc dosyanin da gelmesi sart - eksik kaynak derlemeyi bozar
 if not exist "%APP%\flutter\pubspec.yaml" (
     echo [error] Source extract failed.
+    exit /b 1
+)
+if not exist "%APP%\Cargo.toml" (
+    echo [error] Source incomplete - Cargo.toml missing.
+    exit /b 1
+)
+if not exist "%APP%\src\lib.rs" (
+    echo [error] Source incomplete - src\lib.rs missing.
     exit /b 1
 )
 echo [ok] Source
@@ -266,7 +283,9 @@ set "ANDROID_SDK_ROOT=%ANDROID_DIR%"
 set "ANDROID_NDK_HOME=%ANDROID_DIR%\ndk\%NDK_VERSION%"
 set "PATH=%MGIT%\usr\bin;%MGIT%\cmd;%FLUTTER_DIR%\bin;%JAVA_DIR%\bin;%CARGO_HOME%\bin;%ANDROID_DIR%\cmake\3.22.1\bin;%PERL_DIR%\perl\bin;%PERL_DIR%\c\bin;%ANDROID_DIR%\platform-tools;%PATH%"
 if not exist "%MGIT%\usr\bin\perl.exe" (
-    echo [warn] MSYS perl not found in Git.
+    echo [bilgi] Git icinde MSYS perl yok. Yalnizca OpenSSL ^(native-tls^)
+    echo         arka ucu derlenirken gerekir; bu proje rustls kullandigi
+    echo         icin derlemeyi ETKILEMEZ.
 )
 set "CMAKE_GENERATOR=Ninja"
 

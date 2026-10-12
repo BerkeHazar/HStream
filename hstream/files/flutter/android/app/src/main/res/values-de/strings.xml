@@ -7,4 +7,15 @@
     <string name="hs_hiz">Wiedergabegeschwindigkeit</string>
     <string name="hs_tamekran">Vollbild</string>
     <string name="hs_sonraki">Nächste Folge</string>
+    <string name="hs_menu_baslik">Optionen</string>
+    <string name="hs_uyku">Sleep-Timer</string>
+    <string name="hs_pip">Bild im Bild</string>
+    <string name="hs_dakika">Minuten</string>
+    <string name="hs_altyazi">Untertitel</string>
+    <string name="hs_altyazi_kapali">Aus</string>
+    <string name="hs_altyazi_yok">Keine Untertitel gefunden</string>
+    <string name="hs_durdur">Pause</string>
+    <string name="hs_oynat">Abspielen</string>
+    <string name="hs_pip_geri_10">10 Sekunden zurück</string>
+    <string name="hs_pip_ileri_10">10 Sekunden vor</string>
 </resources>

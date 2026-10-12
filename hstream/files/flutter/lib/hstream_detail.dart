@@ -13,8 +13,10 @@ import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/models/source_type.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/player.dart';
 import 'package:open_tv/l10n.dart';
+import 'package:open_tv/xtream_bilgi.dart';
 
 ///  — DETAY EKRANI (onaylı tasarım):
 /// Film/Dizi kartına basınca önce burası açılır: büyük kapak, ad, bilgi
@@ -87,20 +89,33 @@ class _HStreamDetailState extends State<HStreamDetail> {
       final sifre = kaynak.password ?? "";
       if (kok.isEmpty || kullanici.isEmpty) throw "kimlik yok";
 
+      // DUZELTME: Dizilerde kimlik `url` icinde degil `seriesId` alanindadir.
+      // Onceden url sayiya cevrilmeye calisiliyordu; url bir yayin adresi
+      // oldugu icin her zaman -1 donup "id yok" firlatiliyordu → dizi
+      // aciklamalari hic yuklenmiyordu.
       late final int icerikId;
       if (_dizi) {
-        icerikId = int.tryParse(widget.channel.url ?? "") ?? -1;
+        icerikId =
+            widget.channel.seriesId ??
+            int.tryParse(widget.channel.url ?? "") ??
+            -1;
       } else {
         icerikId = widget.channel.streamId ?? -1;
       }
       if (icerikId < 0) throw "id yok";
 
-      final uri = Uri.parse(
-        "$kok/player_api.php"
-        "?username=${Uri.encodeComponent(kullanici)}"
-        "&password=${Uri.encodeComponent(sifre)}"
-        "&action=${_dizi ? "get_series_info" : "get_vod_info"}"
-        "&${_dizi ? "series_id" : "vod_id"}=$icerikId",
+      // DUZELTME: Adres elle birlestirilmiyor. Kaynak zaten player_api.php
+      // iceriyorsa ".../player_api.php/player_api.php" olusup 404 veriyordu.
+      final adresler = xtreamApiAdresleri(kok);
+      final eylem = _dizi ? "get_series_info" : "get_vod_info";
+      final idAnahtar = _dizi ? "series_id" : "vod_id";
+      final uri = Uri.parse(adresler.first).replace(
+        queryParameters: {
+          "username": kullanici,
+          "password": sifre,
+          "action": eylem,
+          idAnahtar: "$icerikId",
+        },
       );
       final cevap = await _httpJson(uri.toString());
       final bilgi = cevap["info"];
@@ -124,11 +139,20 @@ class _HStreamDetailState extends State<HStreamDetail> {
   Future<Map<String, dynamic>> _httpJson(String url) async {
     final istemci = HttpClient();
     istemci.connectionTimeout = const Duration(seconds: 8);
+    // DUZELTME: IPTV panellerinin cogu ozel veya suresi dolmus sertifika
+    // kullanir. Bu satir olmadan istek patlar ve aciklama hic yuklenmez.
+    // (xtream_bilgi.dart'ta zaten vardi; burada unutulmustu.)
+    istemci.badCertificateCallback = (cert, host, port) => true;
     try {
       final istek = await istemci
           .getUrl(Uri.parse(url))
           .timeout(const Duration(seconds: 8));
       final cevap = await istek.close().timeout(const Duration(seconds: 10));
+      // Durum kodu kontrolu: hata sayfasi (HTML) JSON sanilip cozulmeye
+      // calisilmasin.
+      if (cevap.statusCode < 200 || cevap.statusCode >= 300) {
+        throw "HTTP ${cevap.statusCode}";
+      }
       final govde = await cevap
           .transform(utf8.decoder)
           .join()
@@ -289,7 +313,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
-          BoxShadow(color: Color(0x66000000), blurRadius: 24, spreadRadius: 2),
+          BoxShadow(color: P.shadowSoft, blurRadius: 24, spreadRadius: 2),
         ],
       ),
       child: ClipRRect(
@@ -314,7 +338,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF4A3B5A), Color(0xFF282035)],
+          colors: P.placeholderGrad,
         ),
       ),
       child: const Center(
@@ -344,7 +368,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
         if (_yukleniyor)
           Text(
             L.t("bilgi_yukleniyor"),
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF8B93B5)),
+            style: TextStyle(fontSize: 12.5, color: P.textTertiary),
           )
         else if (_metaYazi.isNotEmpty)
           Text(
@@ -352,7 +376,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
             style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF9AA2C4),
+              color: P.textSecondary,
             ),
           ),
         const SizedBox(height: 12),
@@ -364,7 +388,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
                     style: const TextStyle(
                       fontSize: 14,
                       height: 1.55,
-                      color: Color(0xFFC7CCE3),
+                      color: P.textSecondary,
                     ),
                   )
                 : Text(
@@ -374,7 +398,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
                     style: const TextStyle(
                       fontSize: 13.5,
                       height: 1.5,
-                      color: Color(0xFF8B93B5),
+                      color: P.textTertiary,
                     ),
                   ),
           ),
@@ -392,20 +416,15 @@ class _HStreamDetailState extends State<HStreamDetail> {
         Expanded(
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            decoration: BoxDecoration(
+            // PERFORMANS: Animasyonlu blur'lu gölge kaldırıldı (her karede
+            // yeniden hesaplanıyordu → takılma). Odak artık kenarlıkla.
+            // foregroundDecoration + sabit kalınlık → düzen kaymaz.
+            foregroundDecoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: odak ? const Color(0xFFA78BFA) : Colors.transparent,
-                width: odak ? 2.5 : 0,
+                color: odak ? P.brandLight : Colors.transparent,
+                width: 2.5,
               ),
-              boxShadow: odak
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x66A78BFA),
-                        blurRadius: 14,
-                      ),
-                    ]
-                  : null,
             ),
             child: Material(
               color: Colors.transparent,
@@ -421,7 +440,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFF5642D6), Color(0xFF7A52E0)],
+                      colors: [P.brandDark, P.brand],
                     ),
                   ),
                   child: Center(
@@ -455,7 +474,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
           width: 52,
           height: 52,
           child: Material(
-            color: const Color(0xFF1D1F2F),
+            color: P.surfaceRaised,
             borderRadius: BorderRadius.circular(14),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
@@ -463,12 +482,12 @@ class _HStreamDetailState extends State<HStreamDetail> {
               child: Center(
                 child: Icon(
                   widget.channel.favorite
-                      ? Icons.favorite
-                      : Icons.favorite_border,
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
                   size: 26,
                   color: widget.channel.favorite
-                      ? const Color(0xFFF472B6)
-                      : const Color(0xFF9AA2C4),
+                      ? P.favoriIkon
+                      : P.textSecondary,
                 ),
               ),
             ),
@@ -483,7 +502,7 @@ class _HStreamDetailState extends State<HStreamDetail> {
     final yatay =
         MediaQuery.of(context).orientation == Orientation.landscape;
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A16),
+      backgroundColor: P.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

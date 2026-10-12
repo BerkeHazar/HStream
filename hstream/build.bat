@@ -15,6 +15,8 @@ findstr /c:"HSTREAM_OVERLAY" "%HS%\apply.bat" >nul || (
 )
 if not exist "%ROOT%\setup.bat" (echo [error] setup.bat not found. & pause & exit /b 1)
 if not exist "%APP%\flutter\pubspec.yaml" (echo [error] app missing. Run setup.bat [1] first. & pause & exit /b 1)
+if not exist "%APP%\Cargo.toml" (echo [error] app incomplete - Cargo.toml missing. Run setup.bat [1]. & pause & exit /b 1)
+if not exist "%APP%\src\lib.rs" (echo [error] app incomplete - src\lib.rs missing. Run setup.bat [1]. & pause & exit /b 1)
 if not exist "%HS%\files\flutter\lib\main.dart" (echo [error] hstream\files missing. & pause & exit /b 1)
 
 echo Applying overlay...

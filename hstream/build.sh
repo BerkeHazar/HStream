@@ -52,6 +52,19 @@ rm -f "$APP/flutter/lib/whats_new_modal.dart" \
       "$APP/flutter/lib/hstream_rail.dart" \
       "$APP/flutter/lib/tv_home.dart"
 
+if ! grep -q 'io.github.berkehazar.hstream' "$APP/flutter/android/app/build.gradle"; then
+  echo "[error] HStream applicationId missing in build.gradle" >&2
+  exit 1
+fi
+
+if [[ -f "$ROOT/keys/key.properties" ]]; then
+  cp -f "$ROOT/keys/key.properties" "$APP/flutter/android/key.properties"
+  echo "Imzalama anahtari baglandi."
+else
+  echo "keys/key.properties yok - release derlemesi debug anahtariyla imzalanacak."
+  echo "Kendi anahtarin icin: ./hstream/keystore.sh"
+fi
+
 echo "[1/2] cargo ndk"
 cd "$APP"
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \

@@ -7,4 +7,19 @@
     <string name="hs_hiz">Oynatma hızı</string>
     <string name="hs_tamekran">Tam ekran</string>
     <string name="hs_sonraki">Sonraki bölüm</string>
+    <string name="hs_sonraki_bolum">Sonraki bölüm</string>
+    <string name="hs_daha_fazla">Daha fazla</string>
+    <string name="hs_menu_baslik">Seçenekler</string>
+    <string name="hs_uyku">Uyku zamanlayıcısı</string>
+    <string name="hs_pip">Resim içinde resim</string>
+    <string name="hs_dakika">dakika</string>
+    <string name="hs_altyazi">Altyazı</string>
+    <string name="hs_altyazi_kapali">Kapalı</string>
+    <string name="hs_altyazi_yok">Altyazı bulunamadı</string>
+    <string name="hs_durdur">Durdur</string>
+    <string name="hs_oynat">Oynat</string>
+    <!-- : PiP penceresindeki 10 sn geri/ileri eylemlerinin erisilebilirlik
+         aciklamalari (yalniz VOD'da gosterilir). -->
+    <string name="hs_pip_geri_10">10 saniye geri</string>
+    <string name="hs_pip_ileri_10">10 saniye ileri</string>
 </resources>

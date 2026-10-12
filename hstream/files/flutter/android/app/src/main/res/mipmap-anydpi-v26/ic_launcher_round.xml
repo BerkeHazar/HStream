@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- HSTREAM : uyarlanabilir YUVARLAK ikon (launcher round).
+     Ayni "fazla buyuk" sorunu burada daha da belirgindir: daire maske
+     kenarlardan daha cok kirpar. <inset> %18 ile on plan guvenli alana
+     cekilir; bkz. ic_launcher.xml aciklamasi. -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_foreground"
+            android:inset="18%" />
+    </foreground>
 </adaptive-icon>

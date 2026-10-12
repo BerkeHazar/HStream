@@ -29,7 +29,13 @@ DateTime? _expCoz(dynamic exp) {
   return DateTime.tryParse(s)?.toLocal();
 }
 
-List<String> _apiAdresleri(String ham) {
+/// Xtream API adres(ler)ini uretir.
+///
+/// Kaynak adresi zaten `player_api.php` iceriyorsa onu kullanir; icermiyorsa
+/// sonuna ekler. Elle "$kok/player_api.php" birlestirmek, adres zaten
+/// player_api.php icerdiginde ".../player_api.php/player_api.php" uretip
+/// 404'e yol acar.
+List<String> xtreamApiAdresleri(String ham) {
   var kok = ham.trim();
   if (kok.endsWith("/")) kok = kok.substring(0, kok.length - 1);
   final soru = kok.indexOf("?");
@@ -39,6 +45,8 @@ List<String> _apiAdresleri(String ham) {
   }
   return ["$kok/player_api.php"];
 }
+
+List<String> _apiAdresleri(String ham) => xtreamApiAdresleri(ham);
 
 Future<XtreamBilgi?> xtreamBilgiCek(Source kaynak) async {
   if (kaynak.sourceType != SourceType.xtream) return null;

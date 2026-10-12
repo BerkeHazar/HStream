@@ -11,6 +11,7 @@ import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/player.dart';
 import 'package:open_tv/exo_player.dart';
 import 'package:open_tv/hstream_detail.dart';
@@ -75,7 +76,7 @@ class _ChannelTileState extends State<ChannelTile> {
       controller: Material.of(context),
       referenceBox: renderBox,
       position: renderBox.size.center(Offset.zero),
-      color: theme.splashColor,
+      color: P.pressOverlay,
       textDirection: Directionality.of(context),
       containedInkWell: true,
       rectCallback: () => Offset.zero & renderBox.size,
@@ -263,11 +264,31 @@ class _ChannelTileState extends State<ChannelTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: (_focusNode.hasFocus && AppMode.isTv) ? 8.0 : 2.0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      child: Builder(
+    // PERFORMANS: Odaklanınca değişen elevation (2 -> 8) her karede blur'lu
+    // gölgeyi yeniden çiziyordu → takılma. Odak artık kenarlıkla gösterilir.
+    // GERİ BİLDİRİM: Basma efekti telefonda da çalışır + %98 ölçek.
+    return ValueListenableBuilder<Set<WidgetState>>(
+      valueListenable: _statesController,
+      builder: (context, durumlar, _) {
+        final basili = durumlar.contains(WidgetState.pressed);
+        final odakli = durumlar.contains(WidgetState.focused) && AppMode.isTv;
+        return AnimatedScale(
+          scale: basili ? 0.98 : 1.0,
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          child: Container(
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: odakli ? P.brandLight : Colors.transparent,
+                width: 2,
+              ),
+            ),
+            child: Card(
+              elevation: 2.0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              color: Theme.of(context).colorScheme.surfaceContainer,
+              child: Builder(
         builder: (innerContext) {
           _innerContext = innerContext;
           return InkWell(
@@ -275,6 +296,13 @@ class _ChannelTileState extends State<ChannelTile> {
             autofocus: widget.autofocus,
             statesController: _statesController,
             borderRadius: BorderRadius.circular(12),
+            // YUMUSAK HIS: belirgin overlay + haptik geri bildirim.
+            // Onceden splash/highlight hic verilmemisti → tema varsayilani
+            // (soluk) kullaniliyordu ve dokunus "hissiz" kalıyordu.
+            splashColor: P.pressOverlay,
+            highlightColor: P.pressOverlay,
+            focusColor: P.pressOverlay,
+            onTapDown: (_) => HapticFeedback.selectionClick(),
             onLongPress: favorite,
             onTap: () async => await play(),
             child: Row(
@@ -285,19 +313,21 @@ class _ChannelTileState extends State<ChannelTile> {
                   child: Container(
                     padding: const EdgeInsets.all(8.0),
                     child: Center(
-                      child: widget.channel.image != null
+                      // : `kapakVar` — bos string de "kapak yok" sayilir
+                      // (bkz. models/channel.dart).
+                      child: widget.channel.kapakVar
                           ? CachedNetworkImage(
                               imageUrl: widget.channel.image!,
                               memCacheHeight: 300,
                               memCacheWidth: 300,
                               fit: BoxFit.contain,
                               errorWidget: (_, __, ___) => const Icon(
-                                Icons.tv,
+                                Icons.tv_rounded,
                                 size: 45,
                                 color: Colors.grey,
                               ),
                             )
-                          : const Icon(Icons.tv, size: 45, color: Colors.grey),
+                          : const Icon(Icons.tv_rounded, size: 45, color: Colors.grey),
                     ),
                   ),
                 ),
@@ -326,7 +356,7 @@ class _ChannelTileState extends State<ChannelTile> {
                   const Padding(
                     padding: EdgeInsets.only(right: 8.0),
                     child: Center(
-                      child: Icon(Icons.star, size: 25, color: Colors.amber),
+                      child: Icon(Icons.star_rounded, size: 25, color: Colors.amber),
                     ),
                   ),
               ],
@@ -334,6 +364,10 @@ class _ChannelTileState extends State<ChannelTile> {
           );
         },
       ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

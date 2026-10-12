@@ -15,7 +15,6 @@
         android:layout_height="match_parent"
         app:surface_type="surface_view"
         app:resize_mode="fit"
-        app:show_subtitle_button="true"
         app:auto_show="true"
         app:controller_layout_id="@layout/custom_player_control_view" />
 
@@ -34,6 +33,6 @@
             android:layout_height="36dp"
             android:layout_gravity="center"
             android:indeterminate="true"
-            android:indeterminateTint="#FFA78BFA" />
+            android:indeterminateTint="@color/hs_brand_light" />
     </FrameLayout>
 </FrameLayout>

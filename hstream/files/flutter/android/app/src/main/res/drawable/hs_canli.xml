@@ -2,6 +2,6 @@
 <!-- HStream: CANLI rozeti (kirmizi hap) -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#FFE11D48" />
+    <solid android:color="@color/hs_rozet_canli" />
     <corners android:radius="20dp" />
 </shape>

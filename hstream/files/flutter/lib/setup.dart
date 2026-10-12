@@ -493,7 +493,7 @@ class _SetupState extends State<Setup> {
                 subtitle: Text(_turAciklamalari[i]),
                 trailing: secili
                     ? Icon(
-                        Icons.check_circle,
+                        Icons.check_circle_rounded,
                         color: Theme.of(context).colorScheme.primary,
                       )
                     : null,
@@ -541,7 +541,7 @@ class _SetupState extends State<Setup> {
               decoration: const InputDecoration(
                 labelText: "İsim (örn. Salon TV)",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.label_outline),
+                prefixIcon: Icon(Icons.label_outline_rounded),
               ),
               textInputAction: TextInputAction.next,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -581,7 +581,7 @@ class _SetupState extends State<Setup> {
               decoration: const InputDecoration(
                 labelText: "Sunucu Adresi (http://...:port)",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.link),
+                prefixIcon: Icon(Icons.link_rounded),
               ),
               textInputAction: TextInputAction.next,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -609,7 +609,7 @@ class _SetupState extends State<Setup> {
               decoration: const InputDecoration(
                 labelText: "Kullanıcı Adı",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+                prefixIcon: Icon(Icons.person_rounded),
               ),
               textInputAction: TextInputAction.next,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -638,7 +638,7 @@ class _SetupState extends State<Setup> {
               decoration: const InputDecoration(
                 labelText: "Şifre",
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.password),
+                prefixIcon: Icon(Icons.password_rounded),
               ),
               textInputAction: TextInputAction.next,
               autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -653,9 +653,9 @@ class _SetupState extends State<Setup> {
   }
 
   Widget getPage(
-    final String title,
-    final String? subtitle,
-    final List<Widget>? content, {
+    String title,
+    String? subtitle,
+    List<Widget>? content, {
     Widget? header,
   }) {
     return Center(

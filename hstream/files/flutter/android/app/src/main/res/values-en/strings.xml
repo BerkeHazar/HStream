@@ -7,4 +7,15 @@
     <string name="hs_hiz">Playback speed</string>
     <string name="hs_tamekran">Fullscreen</string>
     <string name="hs_sonraki">Next episode</string>
+    <string name="hs_menu_baslik">Options</string>
+    <string name="hs_uyku">Sleep timer</string>
+    <string name="hs_pip">Picture in picture</string>
+    <string name="hs_dakika">minutes</string>
+    <string name="hs_altyazi">Subtitles</string>
+    <string name="hs_altyazi_kapali">Off</string>
+    <string name="hs_altyazi_yok">No subtitles found</string>
+    <string name="hs_durdur">Pause</string>
+    <string name="hs_oynat">Play</string>
+    <string name="hs_pip_geri_10">Rewind 10 seconds</string>
+    <string name="hs_pip_ileri_10">Forward 10 seconds</string>
 </resources>

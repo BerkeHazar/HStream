@@ -7,4 +7,15 @@
     <string name="hs_hiz">Vitesse de lecture</string>
     <string name="hs_tamekran">Plein écran</string>
     <string name="hs_sonraki">Épisode suivant</string>
+    <string name="hs_menu_baslik">Options</string>
+    <string name="hs_uyku">Minuteur</string>
+    <string name="hs_pip">Image dans l\'image</string>
+    <string name="hs_dakika">minutes</string>
+    <string name="hs_altyazi">Sous-titres</string>
+    <string name="hs_altyazi_kapali">Désactivé</string>
+    <string name="hs_altyazi_yok">Aucun sous-titre trouvé</string>
+    <string name="hs_durdur">Pause</string>
+    <string name="hs_oynat">Lecture</string>
+    <string name="hs_pip_geri_10">Reculer de 10 secondes</string>
+    <string name="hs_pip_ileri_10">Avancer de 10 secondes</string>
 </resources>

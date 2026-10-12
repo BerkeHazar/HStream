@@ -13,6 +13,7 @@ mod settings;
 mod sort_type;
 mod source_type;
 mod sql;
+mod tls;
 mod types;
 mod utils;
 mod view_type;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/id_data.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/l10n.dart';
 
@@ -103,7 +104,7 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
             fontSize: 9,
             fontWeight: FontWeight.w900,
             letterSpacing: 1.1,
-            color: Color(0xFF8B93B5),
+            color: P.textTertiary,
           ),
         ),
         const SizedBox(height: 8),
@@ -112,7 +113,7 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
             // Sezon chip'i (sezon bilgisi yoksa gizlenir)
             if (aktifSezon != null)
             Material(
-              color: const Color(0xFF1D1F2F),
+              color: P.surfaceRaised,
               borderRadius: BorderRadius.circular(9),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -133,15 +134,15 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                         style: const TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFFC9CFEA),
+                          color: P.textSecondary,
                         ),
                       ),
                       if (cokSezon) ...const [
                         SizedBox(width: 4),
                         Icon(
-                          Icons.arrow_drop_down,
+                          Icons.arrow_drop_down_rounded,
                           size: 13,
-                          color: Color(0xFF9AA2C4),
+                          color: P.textSecondary,
                         ),
                       ],
                     ],
@@ -157,6 +158,11 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                 child: ListView.separated(
                   controller: _kaydirici,
                   scrollDirection: Axis.horizontal,
+                  // : KAYDIRMA KASMASI DÜZELTMESİ — yaylanan (bouncing) fizik
+                  // yerine sınırlayan (clamping) fizik. Android'de yaylanma
+                  // aşırı kaydırma efektini her karede yeniden hesaplattırıyor,
+                  // blurlu kenar da bunu katlıyordu.
+                  physics: const ClampingScrollPhysics(),
                   itemCount: widget.bolumler.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (context, i) {
@@ -166,11 +172,15 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                         !secili && widget.izlenenIds.contains(bolum.id);
                     final no =
                         bolum.episodeNum?.toString() ?? (i + 1).toString();
-                    return _bolumKutusu(
-                      no: no,
-                      secili: secili,
-                      izlendi: izlendi,
-                      onTap: () => widget.onBolumSec(bolum),
+                    // : her kutu kendi katmanında — yatay kaydırırken yalnız
+                    // görünen kutular boyanır, tüm şerit yeniden çizilmez.
+                    return RepaintBoundary(
+                      child: _bolumKutusu(
+                        no: no,
+                        secili: secili,
+                        izlendi: izlendi,
+                        onTap: () => widget.onBolumSec(bolum),
+                      ),
                     );
                   },
                 ),
@@ -189,7 +199,7 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: secili ? Colors.transparent : const Color(0xFF1D1F2F),
+      color: secili ? Colors.transparent : P.surfaceRaised,
       borderRadius: BorderRadius.circular(9),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -203,15 +213,18 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF7A52E0), Color(0xFF5642D6)],
+                    colors: [P.brand, P.brandDark],
                   ),
-                  boxShadow: const [
-                    BoxShadow(color: Color(0x667A52E0), blurRadius: 10),
-                  ],
+                  // : gölge KALDIRILDI (blurRadius 10) — seçili kutu
+                  // her kaydırma karesinde 10px bulanıklıkla yeniden
+                  // boyanıyordu; bölüm şeridi yatay kaydırılırken ölçülebilir
+                  // kasma yapıyordu. Seçim artık gradyan + kenarlıkla
+                  // belirtilir (görsel fark neredeyse yok, maliyet sıfır).
+                  border: Border.all(color: P.brandLight, width: 0.5),
                 )
               : BoxDecoration(
                   borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: const Color(0xFF2C3344)),
+                  border: Border.all(color: P.surfaceHigh),
                 ),
           child: Stack(
             children: [
@@ -221,7 +234,7 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: secili ? Colors.white : const Color(0xFFC9CFEA),
+                    color: secili ? Colors.white : P.textSecondary,
                   ),
                 ),
               ),
@@ -235,7 +248,7 @@ class _HStreamBolumSeridiState extends State<HStreamBolumSeridi> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(2),
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF5642D6), Color(0xFFA78BFA)],
+                        colors: [P.brandDark, P.brandLight],
                       ),
                     ),
                   ),
@@ -273,9 +286,9 @@ class HStreamSonrakiKarti extends StatelessWidget {
       width: 300,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF161826),
+        color: P.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2C3344)),
+        border: Border.all(color: P.surfaceHigh),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -285,7 +298,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: Text(
               "$kalanSn ${L.t('basliyor')}",
-              style: const TextStyle(fontSize: 10.5, color: Color(0xFF8B93B5)),
+              style: const TextStyle(fontSize: 10.5, color: P.textTertiary),
             ),
           ),
           const SizedBox(height: 6),
@@ -295,7 +308,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
               fontSize: 9.5,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
-              color: Color(0xFFA78BFA),
+              color: P.brandLight,
             ),
           ),
           const SizedBox(height: 8),
@@ -317,7 +330,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
               altYazi!,
               style: const TextStyle(
                 fontSize: 11.5,
-                color: Color(0xFF9AA2C4),
+                color: P.textSecondary,
               ),
             ),
           ],
@@ -337,7 +350,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFF7A52E0), Color(0xFF5642D6)],
+                          colors: [P.brand, P.brandDark],
                         ),
                         borderRadius: BorderRadius.all(Radius.circular(11)),
                       ),
@@ -358,7 +371,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Material(
-                  color: const Color(0xFF1D1F2F),
+                  color: P.surfaceRaised,
                   borderRadius: BorderRadius.circular(11),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
@@ -369,7 +382,7 @@ class HStreamSonrakiKarti extends StatelessWidget {
                         child: Text(
                           L.t('iptal'),
                           style: const TextStyle(
-                            color: Color(0xFFC9CFEA),
+                            color: P.textSecondary,
                             fontWeight: FontWeight.w800,
                             fontSize: 12.5,
                           ),

@@ -26,6 +26,14 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "registry", "env-filt
 tracing-log = "0.2"
 sysdirs = "0.9.4"
 tokio = { version = "1.52", features = ["full"] }
+# : HTTPS doğrulaması. reqwest 0.13'ün `rustls` özelliği kök sertifikalar için
+# ZORUNLU olarak `rustls-platform-verifier` kullanır ve o doğrulayıcı Android'de
+# başlatılmadığı için panic atar (m3u/Xtream ekleme sonsuza kadar bekler).
+# Bu yüzden istemciler `src/tls.rs` içinde KENDİ rustls yapılandırmamızla
+# kurulur ve Mozilla kök listesi kullanılır. Bu iki bağımlılık o modül
+# içindir; kaldırılırsa derleme kırılır.
+rustls = "0.23"
+webpki-roots = "1"
 
 [target.'cfg(target_os = "android")'.dependencies]
 reqwest = { version = "0.13", default-features = false, features = [

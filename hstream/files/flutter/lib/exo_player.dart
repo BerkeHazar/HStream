@@ -16,7 +16,9 @@ import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/models/sort_type.dart';
 import 'package:open_tv/models/view_type.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/player_preferences.dart';
 
+import 'package:open_tv/palet.dart';
 /// /10.9 — HStream oynatıcı ekranı (Android).
 /// - YATAY: tam ekran video + HStream kontrolleri (native XML) + sağ altta
 ///   SONRAKİ BÖLÜM rozeti (yalnız dizi bölümü izlerken).
@@ -53,7 +55,8 @@ class ExoPlayerScreen extends StatefulWidget {
   State<ExoPlayerScreen> createState() => _ExoPlayerScreenState();
 }
 
-class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
+class _ExoPlayerScreenState extends State<ExoPlayerScreen>
+    with WidgetsBindingObserver {
   static const _viewType = "dev.fredol.open_tv/exoplayer";
 
   MethodChannel? _channel;
@@ -77,6 +80,29 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   bool _kartAcik = false;
   int _kalanSn = 5;
   Timer? _kartSayac;
+
+  // : uyku zamanlayıcısı — süre DART tarafında sayılır, dolunca native
+  // duraklatılır ve oynatıcıdan çıkılır. Durum ekranda kalan süre olarak
+  // tutulur (native yalnızca seçimi iletir, geri sayım burada).
+  //
+  // : KASMA (STUTTER) DÜZELTMESİ — geri sayım ARTIK `setState` ÇAĞIRMAZ.
+  // Önceden `Timer.periodic` her saniye geri sayımı azaltıp `setState`
+  // çağırıyordu; bu, `_dikeyPanel()`'in TAMAMINI (bölüm şeridi, favori,
+  // "sonraki bölüm" düğmesi, çipler) her saniye yeniden kuruyordu.
+  // Dikey panel kaydırılırken saniyede bir tam rebuild = gözle görülür
+  // kasma. Çözüm: sayacı `ValueNotifier`'a taşıdık; yalnızca uyku ÇİPİ
+  // `ValueListenableBuilder` ile kendini tazeler, panelin geri kalanı
+  // etkilenmez. `setState` yalnızca uyku BAŞLARKEN/BİTİRKEN çağrılır.
+  Timer? _uykuSayac;
+  final ValueNotifier<int> _uykuKalan = ValueNotifier<int>(0);
+  int _uykuToplamDk = 0;
+  // `_hizliIslemler()` canlı yayında çip üretmez; bunu panel dışında
+  // hesaplamak tekrar derlemeyi ucuzlatır.
+  bool get _uykuAktif => _uykuKalan.value > 0;
+
+  // : oynatma hızı — dikey paneldeki hızlı işlem çipinden değiştirilir.
+  // Native oynatıcıya "setSpeed" ile bildirilir; bölüm geçişinde korunur.
+  double _oynatmaHizi = 1.0;
 
   // : son uygulanan yön (sistem çubuğu güncellemesi için)
   bool? _sonYatay;
@@ -105,14 +131,68 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    // : KALINAN DAKİKA — yaşam döngüsü dinlenir ki uygulama arka plana
+    // atılınca (PiP penceresi kapatılınca, home tuşu) konum kaydedilebilsin.
+    // Aksi halde yalnızca "geri" tuşuna basılınca yazılıyordu ve Son
+    // İzlenenler'deki rozet eski konumu gösteriyordu.
+    WidgetsBinding.instance.addObserver(this);
     _init();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _kartSayac?.cancel();
+    _uykuSayac?.cancel();
+    _konumSayac?.cancel();
+    _uykuKalan.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  // : KALINAN DAKİKA — uygulama öne/arkaya geçişleri. Yaşam döngüsü
+  // olayları çok sık tetiklenir (diyalog, PiP geçişi, ekran kilidi), bu
+  // yüzden yazım 5 saniyede bir ile sınırlanır.
+  int _sonKonumKaydiMs = 0;
+  // : KALINAN DAKİKA — düzenli aralıklı kayıt. Uygulama aniden sonlanırsa
+  // (PiP penceresi kapatma, arka planda öldürülme) yaşam döngüsü olayı
+  // gelmeyebilir; 20 saniyelik yazım rozeti en fazla 20 sn geride bırakır.
+  Timer? _konumSayac;
+  // Aynı değeri tekrar tekrar yazmayı önler (duraklatılmış videoda
+  // saniyede bir FFI çağrısı yapılmasın).
+  int _sonKaydedilenSn = -1;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.inactive &&
+        state != AppLifecycleState.paused &&
+        state != AppLifecycleState.hidden) {
+      return;
+    }
+    final simdi = DateTime.now().millisecondsSinceEpoch;
+    if (simdi - _sonKonumKaydiMs < 5000) return;
+    _sonKonumKaydiMs = simdi;
+    _konumKaydet();
+  }
+
+  // : konum yazımı — film ve bölümler `media_type = movie` olarak
+  // saklandığı için ikisi de kapsanır; canlı yayında konum kavramı yok.
+  // `await` EDİLMEZ: çağıran akışı (çıkış, bölüm geçişi) geciktirmemeli.
+  Future<void> _konumKaydet() async {
+    final id = _kanal.id;
+    final ch = _channel;
+    if (id == null || ch == null) return;
+    if (_kanal.mediaType != MediaType.movie) return;
+    try {
+      final posMs = await ch.invokeMethod<int>("getPosition") ?? 0;
+      final sn = posMs ~/ 1000;
+      if (sn > 0 && sn != _sonKaydedilenSn) {
+        _sonKaydedilenSn = sn;
+        await NativeBridge.instance.setMoviePosition(id, sn);
+      }
+    } catch (_) {
+      // konum yazılamadı — oynatmayı etkilemez
+    }
   }
 
   Future<void> _init() async {
@@ -140,9 +220,24 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         "meta": widget.meta,
         "positionLabel": widget.konumEtiketi,
         "hasNext": _sonrakiBolum != null,
+        // : oynatıcı tercihleri (SharedPreferences) — native taraf bunları
+        // kurulumda uygular: tampon süresi, altyazı boyutu, PiP izni
+        "tamponSn": PlayerPreferences.tamponSn,
+        "altyaziSp": PlayerPreferences.altyaziSp,
+        "pipAcik": PlayerPreferences.pipAcik,
       };
       _ready = true;
     });
+    // : KALINAN DAKİKA — film/bölüm izlenirken konum düzenli aralıklarla
+    // yazılır (20 sn). Yalnızca film/bölümde çalışır; canlı yayında
+    // konum kavramı olmadığı için sayaç hiç kurulmaz.
+    if (_kanal.mediaType == MediaType.movie) {
+      _konumSayac?.cancel();
+      _konumSayac = Timer.periodic(
+        const Duration(seconds: 20),
+        (_) => _konumKaydet(),
+      );
+    }
   }
 
   // ---------- bölüm verisi ----------
@@ -323,6 +418,11 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     if (_gecisBasladi || bolum.id == null || bolum.url == null) return;
     _gecisBasladi = true;
     try {
+      // : KALINAN DAKİKA — bölüm değişmeden ÖNCE, izlenmekte olan bölümün
+      // konumu yazılır. Aksi halde Son İzlenenler'de o bölüm "baştan
+      // başlanmamış" gibi görünüyordu (konum yalnızca oynatıcıdan tam
+      // çıkışta kaydediliyordu).
+      await _konumKaydet();
       // daha önce yarıda kalan bölüme kaldığı yerden devam (episodes = movie)
       final sn =
           (await Error.tryAsyncNoLoading(() async {
@@ -336,6 +436,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         _kanal = bolum;
         _izlenenIds.add(bolum.id!);
       });
+      // : KALINAN DAKİKA — yeni bölümün konumu henüz yazılmadı; "aynı
+      // değeri tekrar yazma" koruması sıfırlanır.
+      _sonKaydedilenSn = -1;
       _channel?.invokeMethod("loadUrl", {
         "url": bolum.url,
         "title": bolum.name,
@@ -351,6 +454,60 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   }
 
   // ---------- bölüm sonu kartı ----------
+
+  // : uyku zamanlayıcısı — native menüden seçilen dakika ile başlar.
+  // Süre DART'ta sayılır; dolunca yayın duraklatılır ve oynatıcıdan çıkılır.
+  // 0 veya negatif değer = iptal.
+  void _uykuBaslat(int dakika) {
+    _uykuSayac?.cancel();
+    if (dakika <= 0) {
+      // : iptal — `setState` YALNIZCA burada (bir kerelik) gerekir, çünkü
+      // çipin vurgu durumu ve panel yerleşimi değişir.
+      _uykuKalan.value = 0;
+      if (mounted) {
+        setState(() => _uykuToplamDk = 0);
+      }
+      _channel?.invokeMethod("showToast", "Uyku zamanlayıcısı iptal edildi");
+      return;
+    }
+    _uykuKalan.value = dakika * 60;
+    if (mounted) {
+      setState(() => _uykuToplamDk = dakika);
+    }
+    _channel?.invokeMethod(
+      "showToast",
+      "Uyku zamanlayıcısı: $dakika dakika",
+    );
+    // : her saniye yalnızca ValueNotifier güncellenir — panel YENİDEN
+    // KURULMAZ. Kasma bu yüzden ortadan kalkar.
+    _uykuSayac = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      final kalan = _uykuKalan.value - 1;
+      if (kalan <= 0) {
+        t.cancel();
+        _uykuKalan.value = 0;
+        if (mounted) {
+          setState(() => _uykuToplamDk = 0);
+        }
+        _uykuDoldu();
+        return;
+      }
+      _uykuKalan.value = kalan;
+    });
+  }
+
+  // : süre doldu — yayını duraklat, oynatıcıdan çık
+  void _uykuDoldu() {
+    _uykuSayac?.cancel();
+    _uykuKalan.value = 0;
+    _channel?.invokeMethod("pause", null);
+    if (mounted) {
+      _onExit();
+    }
+  }
 
   void _bolumBitti() {
     final sonraki = _sonrakiBolum;
@@ -412,6 +569,18 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         case "onEnded":
           _bolumBitti();
           return null;
+        case "setSleepTimer":
+          // native menüden seçilen dakika (int) buraya gelir
+          final dk = (call.arguments as num?)?.toInt() ?? 0;
+          _uykuBaslat(dk);
+          return null;
+        case "pipFailed":
+          // PiP desteklenmiyorsa kullanıcı sessiz kalmasın
+          _channel?.invokeMethod(
+            "showToast",
+            "Bu cihazda resim içinde resim kullanılamıyor",
+          );
+          return null;
         case "toggleFavorite":
           final id = _kanal.id;
           if (id != null) {
@@ -440,12 +609,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     if (_exiting) return;
     _exiting = true;
     _kartKapat();
-    if (_kanal.mediaType == MediaType.movie && _channel != null) {
-      try {
-        final posMs = await _channel!.invokeMethod<int>("getPosition") ?? 0;
-        await NativeBridge.instance.setMoviePosition(_kanal.id!, posMs ~/ 1000);
-      } catch (_) {}
-    }
+    // : KALINAN DAKİKA — film VE bölüm (ikisi de media_type=movie) konumu
+    // yazılır; "Son İzlenenler" rozeti buradan beslenir.
+    await _konumKaydet();
     if (!mounted) return;
     Navigator.of(context).pop();
     SystemChrome.setPreferredOrientations([
@@ -518,12 +684,22 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
             children: [
               Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: videoYukseklik,
-                    child: _ready
-                        ? _buildPlatformView()
-                        : const SizedBox.shrink(),
+                  // : PLATFORM VIEW KATMAN IZOLASYONU —
+                  // Video bir platform view (`initExpensiveAndroidView` =
+                  // hybrid composition): kendi katmaninda kompozit edilir.
+                  // `RepaintBoundary` ile cevrilince Flutter tarafi
+                  // yeniden boyandiginda (ornegin alttaki panel kaydirilirken)
+                  // video katmaninin boyama kaydi YENIDEN URETILMEZ; yalnizca
+                  // var olan katman yeniden kullanilir. Kucuk ama bedava bir
+                  // kazanc; davranisi DEGISTIRMEZ.
+                  RepaintBoundary(
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: videoYukseklik,
+                      child: _ready
+                          ? _buildPlatformView()
+                          : const SizedBox.shrink(),
+                    ),
                   ),
                   if (!yatay) Expanded(child: _dikeyPanel()),
                 ],
@@ -531,7 +707,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
               if (_kartAcik && _sonrakiBolum != null)
                 Positioned.fill(
                   child: Container(
-                    color: const Color(0xD90A0A16),
+                    color: P.playerScrim,
                     child: Center(
                       child: HStreamSonrakiKarti(
                         bolum: _sonrakiBolum!,
@@ -550,75 +726,445 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     );
   }
 
-  Widget _dikeyPanel() {
-    final sonraki = _sonrakiBolum;
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFF0A0A16),
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        12 + MediaQuery.of(context).padding.bottom,
+  // : DOKUNMA GERİ BİLDİRİMİ (ince haptic) — tek yardımcı nokta.
+  // `selectionClick()` en hafif sistem titreşimidir: "klik" hissi verir,
+  // ses/ritim üretmez. Oynatıcıda YALNIZCA tek büyük eylemde (bölüm
+  // atlama) kullanılır; hız/altyazı menü satırları gibi sık dokunulan
+  // yerler bilinçli olarak sessiz bırakıldı (dengeli, "az ama öz").
+  // `onTapDown` değil `onTapUp`: parmak kaydırma niyetiyle basıldığında
+  // boşa titreşmez ve `Navigator` ile yarışmaz.
+  void _titre() {
+    HapticFeedback.selectionClick();
+  }
+
+  // : HIZLI İŞLEM ÇİPLERİ (dikey panel). Native ⋯ menüsünün Dart
+  // karşılığı: telefonda da hız / altyazı / uyku / PiP erişilebilir olur.
+  // Boş kalırsa (canlı yayın + PiP kapalı) hiç yer kaplamaz.
+  Widget _hizliIslemler() {
+    final cipler = <Widget>[];
+    // : native `pipKullanilabilir()` ile AYNI kosul — artik canli yayin
+    // DA dahil. Eskiden `!_isLive` vardi ve canlida PiP cipi hic
+    // gorunmuyordu; Android canli video icin de PiP destekler. Tek fark
+    // native tarafta: canlida PiP'e 10 sn sarim eylemleri eklenmez.
+    final pipVar = PlayerPreferences.pipAcik;
+    if (!_isLive) {
+      cipler.add(
+        _cip(
+          icon: Icons.speed_rounded,
+          etiket: L.t("hiz"),
+          onTap: _hizDialogGoster,
+        ),
+      );
+      cipler.add(
+        _cip(
+          icon: Icons.subtitles_rounded,
+          etiket: L.t("altyazi_boyut"),
+          onTap: _altyaziDialogGoster,
+        ),
+      );
+      cipler.add(
+        // : UYKU ÇİPİ — saniyede bir YALNIZCA bu çip yeniden kurulur.
+        // `ValueListenableBuilder` sayesinde `_dikeyPanel()` ve bölüm
+        // şeridi saniyelik rebuild'den muaf kalır (kasma düzeltmesi).
+        ValueListenableBuilder<int>(
+          valueListenable: _uykuKalan,
+          builder: (_, kalan, __) => _cip(
+            icon: Icons.bedtime_rounded,
+            etiket: kalan > 0 ? _uykuSuresiMetni(kalan) : L.t("uyku"),
+            vurgu: kalan > 0,
+            onTap: _uykuDialogGoster,
+          ),
+        ),
+      );
+    }
+    if (pipVar) {
+      cipler.add(
+        _cip(
+          icon: Icons.picture_in_picture_alt_rounded,
+          etiket: L.t("pip"),
+          onTap: _pipAc,
+        ),
+      );
+    }
+    if (cipler.isEmpty) return const SizedBox.shrink();
+    // : KAYDIRMA KASMASI (STUTTER) DÜZELTMESİ —
+    // Çip satırı yatay kaydırılırken kare başına yapılan iş minimuma
+    // indirilir. Önceki hâlde satır bir `SingleChildScrollView` + `Row`
+    // idi ve şu üç maliyet her karede ödeniyordu:
+    //  1) `Row` tüm çipleri baştan yerleştiriyordu (sabit yükseklik yok),
+    //  2) viewport kırpma katmanı (Clip.hardEdge) yeniden uygulanıyordu,
+    //  3) Material 3'ün varsayılan **esneme (stretching) taşma efekti**
+    //     satırın tamamını ölçekleyip yeniden boyuyordu.
+    // Çözüm: sabit yükseklikli `ListView` (öğeler önceden kurulur,
+    // `cacheExtent` ile kaydırma sırasında build olmaz), `ScrollConfiguration`
+    // ile taşma efekti KAPALI ve katman dışarıdan `RepaintBoundary` ile
+    // yalıtılır — kaydırma yalnızca bu katmanı etkiler, panel/bölüm
+    // şeridi/video yeniden boyanmaz.
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: RepaintBoundary(
+        child: SizedBox(
+          height: 44,
+          child: ScrollConfiguration(
+            // : taşma (overscroll) efekti kapalı — esneme parıltısı/ölçekleme
+            // yatay kaydırmada gereksiz kare üretiyordu.
+            behavior: ScrollConfiguration.of(context).copyWith(
+              overscroll: false,
+              physics: const ClampingScrollPhysics(),
+            ),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const ClampingScrollPhysics(),
+              padding: EdgeInsets.zero,
+              // : kaydırma sırasında çip KURULMASIN (build maliyeti sıfır).
+              cacheExtent: 900,
+              itemCount: cipler.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              // `Align`: çip doğal yüksekliğini korur (sabit 44'lük satıra
+              // yayılıp şişmez), satır içinde dikeyde ortalanır.
+              itemBuilder: (_, i) =>
+                  Align(alignment: Alignment.centerLeft, child: cipler[i]),
+            ),
+          ),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  // tek çip: ikon + etiket; etkin durumda marka rengiyle vurgulanır
+  Widget _cip({
+    required IconData icon,
+    required String etiket,
+    required VoidCallback onTap,
+    bool vurgu = false,
+  }) {
+    return Material(
+      color: vurgu ? P.brandSoft : P.surfaceRaised,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: P.pressOverlay,
+        highlightColor: P.pressOverlay,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _kanal.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      _bolumModu
-                          ? (_bolumMeta(_kanal) ?? widget.meta ?? '')
-                          : (widget.meta ?? ''),
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFF9AA2C4),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+              Icon(
+                icon,
+                size: 16,
+                color: vurgu ? P.brandLight : P.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                etiket,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: vurgu ? P.brandLight : P.textPrimary,
                 ),
               ),
-              const SizedBox(width: 10),
-              _favoriDugmesi(),
             ],
           ),
-          // BÖLÜM ŞERİDİ (yalnız dizi bölümlerinde)
+        ),
+      ),
+    );
+  }
+
+  // : kalan süre metni — değer parametre olarak gelir (notifier'ın
+  // güncel değeri); çipin dışında hesaplanır ki rebuild dar kalsın.
+  String _uykuSuresiMetni(int kalanSn) {
+    final dk = kalanSn ~/ 60;
+    final sn = kalanSn % 60;
+    if (dk > 0) return '$dk:${sn.toString().padLeft(2, '0')}';
+    return '$sn sn';
+  }
+
+  // 1.0 -> "1x", 1.25 -> "1.25x", 0.5 -> "0.5x"
+  String _hizEtiketi(double h) =>
+      h == h.truncateToDouble() ? '${h.toInt()}x' : '${h}x';
+
+  // ---- çip eylemleri (native ⋯ menüsüne gerek kalmadan) ----
+
+  // hız: 0.5x–3x. Native ile aynı aralık; seçim doğrudan kanala yazılır.
+  Future<void> _hizDialogGoster() async {
+    const hizlar = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+    final secim = await showModalBottomSheet<double>(
+      context: context,
+      backgroundColor: P.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  L.t("oynatma_hizi"),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: P.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            for (final h in hizlar)
+              ListTile(
+                dense: true,
+                title: Text(
+                  _hizEtiketi(h),
+                  style: TextStyle(
+                    color: h == _oynatmaHizi ? P.brandLight : P.textPrimary,
+                    fontWeight: h == _oynatmaHizi
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                ),
+                trailing: h == _oynatmaHizi
+                    ? const Icon(Icons.check_rounded, color: P.brandLight, size: 20)
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(h),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (secim == null || !mounted) return;
+    setState(() => _oynatmaHizi = secim);
+    await _channel?.invokeMethod("setSpeed", secim);
+  }
+
+  // altyazı boyutu: PlayerPreferences ile aynı seçenekler
+  Future<void> _altyaziDialogGoster() async {
+    const boyutlar = <int>[18, 24, 30, 36];
+    final secim = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: P.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  L.t("altyazi_boyut"),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: P.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            for (final b in boyutlar)
+              ListTile(
+                dense: true,
+                title: Text(
+                  L.t("altyazi_sp").replaceFirst('%s', '$b'),
+                  style: TextStyle(
+                    color: b == PlayerPreferences.altyaziSp
+                        ? P.brandLight
+                        : P.textPrimary,
+                    fontWeight: b == PlayerPreferences.altyaziSp
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  ),
+                ),
+                trailing: b == PlayerPreferences.altyaziSp
+                    ? const Icon(Icons.check_rounded, color: P.brandLight, size: 20)
+                    : null,
+                onTap: () => Navigator.of(ctx).pop(b),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (secim == null || !mounted) return;
+    await PlayerPreferences.altyaziAyarla(secim);
+    await _channel?.invokeMethod("setSubtitleSize", secim);
+    if (mounted) setState(() {});
+  }
+
+  // uyku: dakika seç (0 = iptal). Süre Dart'ta sayılır, native duraklatır.
+  Future<void> _uykuDialogGoster() async {
+    const dakikalar = <int>[15, 30, 45, 60, 90];
+    final secim = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: P.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    L.t("uyku"),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: P.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              for (final d in dakikalar)
+                ListTile(
+                  dense: true,
+                  title: Text(
+                    L.t("dakika_n").replaceFirst('%s', '$d'),
+                    style: const TextStyle(
+                      color: P.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => Navigator.of(ctx).pop(d),
+                ),
+              if (_uykuAktif)
+                ListTile(
+                  dense: true,
+                  title: Text(
+                    L.t("uyku_iptal"),
+                    style: const TextStyle(
+                      color: P.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => Navigator.of(ctx).pop(0),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (secim == null || !mounted) return;
+    _uykuBaslat(secim);
+  }
+
+  // PiP: destek yoksa native "pipFailed" yollar, kullanıcı toast görür.
+  Future<void> _pipAc() async {
+    await _channel?.invokeMethod("enterPip");
+  }
+
+  Widget _dikeyPanel() {
+    final sonraki = _sonrakiBolum;
+    // : KAYDIRMA KASMASI (STUTTER) DÜZELTMESİ — panel artık gerçek bir
+    // `ListView` içinde. Önceden `Column` + bir esnek dolgu öğesiydi: içerik
+    // ekrana sığmadığında taşıyor, hiçbir şey kaydırılamıyordu ve çip
+    // satırını kaydırmak üst katmanı yeniden boyamaya zorluyordu.
+    // `ListView` + `RepaintBoundary` kombinasyonu:
+    //  - içerik taşarsa doğal olarak kaydırılır (kırpılmaz),
+    //  - her bölüm kendi RepaintBoundary'sinde kalır, kaydırma sırasında
+    //    yalnız görünen katman boyanır.
+    return Container(
+      width: double.infinity,
+      color: P.bg,
+      // : PANEL KAYDIRMA KASMASI — Material 3'ün varsayılan **esneme
+      // (stretching) taşma efekti** panelin tamamını (içindeki bölüm şeridi
+      // ve çiplerle birlikte) ölçekleyip her karede yeniden boyatıyordu;
+      // panelin üstündeki platform view (video) ile birlikte bu, kaydırma
+      // sırasında gözle görülür takılmaya yol açıyordu. Taşma efekti
+      // kapatılır ve fizik sabitlenir (yay animasyonu gereksiz kare üretmez).
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(
+          overscroll: false,
+          physics: const ClampingScrollPhysics(),
+        ),
+        child: ListView(
+          // Klavye/fare ile de kaydırılabilir; telefonda parmak zaten çalışır.
+          physics: const ClampingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            12 + MediaQuery.of(context).padding.bottom,
+          ),
+          children: [
+          // --- başlık + favori (kendi katmanı) ---
+          RepaintBoundary(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _kanal.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _bolumModu
+                            ? (_bolumMeta(_kanal) ?? widget.meta ?? '')
+                            : (widget.meta ?? ''),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: P.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _favoriDugmesi(),
+              ],
+            ),
+          ),
+          // --- hızlı işlem çipleri (kendi katmanı) ---
+          // : HIZLI İŞLEM ÇİPLERİ — telefonda (dikey) uyku/PiP/altyazı
+          // gibi özellikler yalnızca yatay ⋯ menüsünde kalıyordu; bu satır
+          // onları doğrudan erişilebilir kılar. Canlı yayında yalnız PiP
+          // gösterilir (hız/altyazı/uyku VOD'a özeldir).
+          RepaintBoundary(child: _hizliIslemler()),
+          // --- bölüm şeridi (kendi katmanı - en ağır parça) ---
           if (_bolumModu && !_seritHazir && !_seritHata) ...[
             const SizedBox(height: 10),
             Text(
               L.t('bolum_yukleniyor'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF8B93B5)),
+              style: const TextStyle(fontSize: 12, color: P.textTertiary),
             ),
           ],
           if (_bolumModu && _seritHazir && _bolumler.isNotEmpty) ...[
             const SizedBox(height: 10),
-            HStreamBolumSeridi(
-              key: ValueKey('serit_$_aktifSezonId'),
-              sezonlar: _sezonlar,
-              bolumler: _bolumler,
-              aktifSezonId: _aktifSezonId,
-              seciliBolumId: _kanal.id,
-              izlenenIds: _izlenenIds,
-              onSezonDegistir: _sezonDegistir,
-              onBolumSec: _bolumSec,
+            RepaintBoundary(
+              child: HStreamBolumSeridi(
+                key: ValueKey('serit_$_aktifSezonId'),
+                sezonlar: _sezonlar,
+                bolumler: _bolumler,
+                aktifSezonId: _aktifSezonId,
+                seciliBolumId: _kanal.id,
+                izlenenIds: _izlenenIds,
+                onSezonDegistir: _sezonDegistir,
+                onBolumSec: _bolumSec,
+              ),
             ),
           ],
           if (_bolumModu && !_seritHazir && _seritHata) ...[
@@ -628,7 +1174,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
                 Expanded(
                   child: Text(
                     L.t('bolum_yuklenemedi'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF9AA2C4)),
+                    style: const TextStyle(fontSize: 12, color: P.textSecondary),
                   ),
                 ),
                 TextButton(
@@ -638,49 +1184,49 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
               ],
             ),
           ],
-          // SONRAKİ BÖLÜM düğmesi
+          // --- SONRAKİ BÖLÜM düğmesi ---
           if (_bolumModu && sonraki != null) ...[
             const SizedBox(height: 10),
             _sonrakiBolumDugmesi(sonraki),
           ],
-          const Spacer(),
+          // : esnek dolgu öğesi KALDIRILDI — ListView sonsuz yükseklik varsayar,
+          // böyle bir öğe orada hata verir/çöker. Onun yerine tam ekran düğmesi
+          // içerikten sonra sabit bir boşlukla gelir.
+          const SizedBox(height: 18),
+          // Tam ekran: kucuk ve sakin bir aksiyon. Kilitli (dondurmesi kapali)
+          // cihazlar icin gerekli, ama panelin tamamini kaplamasi gerekmiyor.
           Center(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+                  color: P.surfaceRaised,
+                  borderRadius: BorderRadius.circular(12),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     onTap: _tamEkranDegistir,
-                    child: Ink(
+                    splashColor: P.pressOverlay,
+                    highlightColor: P.pressOverlay,
+                    child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 11,
-                      ),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFF5642D6), Color(0xFF7A52E0)],
-                        ),
-                        borderRadius: BorderRadius.all(Radius.circular(14)),
+                        horizontal: 16,
+                        vertical: 9,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.screen_rotation,
-                            color: Colors.white,
-                            size: 22,
+                            Icons.screen_rotation_rounded,
+                            color: P.brandLight,
+                            size: 19,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             L.t("tam_ekran"),
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14.5,
+                              color: P.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                             ),
                           ),
                         ],
@@ -688,15 +1234,16 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
                 Text(
                   L.t("yatay_cevir"),
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF8B93B5)),
+                  style: const TextStyle(fontSize: 11, color: P.textTertiary),
                 ),
               ],
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -711,6 +1258,8 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _bolumDegistir(sonraki),
+        // : bölüm atlama — panelin en "ağır" eylemi, net bir onay hissi
+        onTapUp: (_) => _titre(),
         child: Ink(
           width: double.infinity,
           height: 42,
@@ -718,7 +1267,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF7A52E0), Color(0xFF5642D6)],
+              colors: [P.brand, P.brandDark],
             ),
             borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
@@ -745,7 +1294,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
                 Text(
                   etiket,
                   style: const TextStyle(
-                    color: Color(0xFFD8CDFF),
+                    color: P.brandLight,
                     fontWeight: FontWeight.w700,
                     fontSize: 11,
                   ),
@@ -763,7 +1312,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       width: 48,
       height: 48,
       child: Material(
-        color: const Color(0xFF1D1F2F),
+        color: P.surfaceRaised,
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -779,11 +1328,11 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
           },
           child: Center(
             child: Icon(
-              _kanal.favorite ? Icons.favorite : Icons.favorite_border,
+              _kanal.favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
               size: 24,
               color: _kanal.favorite
-                  ? const Color(0xFFF472B6)
-                  : const Color(0xFF9AA2C4),
+                  ? P.favoriIkon
+                  : P.textSecondary,
             ),
           ),
         ),

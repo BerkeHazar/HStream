@@ -81,7 +81,7 @@ class _EditDialogState extends State<EditDialog> {
                   ]),
                   decoration: const InputDecoration(
                     labelText: 'Url',
-                    prefixIcon: Icon(Icons.link),
+                    prefixIcon: Icon(Icons.link_rounded),
                     border: OutlineInputBorder(),
                   ),
                   name: 'url',
@@ -101,7 +101,7 @@ class _EditDialogState extends State<EditDialog> {
                     ]),
                     decoration: const InputDecoration(
                       labelText: 'Username',
-                      prefixIcon: Icon(Icons.account_circle),
+                      prefixIcon: Icon(Icons.account_circle_rounded),
                       border: OutlineInputBorder(),
                     ),
                     name: 'username',
@@ -122,7 +122,7 @@ class _EditDialogState extends State<EditDialog> {
                     ]),
                     decoration: const InputDecoration(
                       labelText: 'Password',
-                      prefixIcon: Icon(Icons.password),
+                      prefixIcon: Icon(Icons.password_rounded),
                       border: OutlineInputBorder(),
                     ),
                     name: 'password',

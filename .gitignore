@@ -1,15 +1,37 @@
+# Derleme ciktilari
 *.apk
 *.aab
 output/
 downloads/
-tools/
-.idea/
+build/
 .dart_tool/
 .packages
-build/
 .flutter-plugins
 .flutter-plugins-dependencies
+
+# Arastirma araclari (setup.bat / setup.sh indirir)
+tools/
+
+# Yerel yedekler ve gecici dosyalar
+_app_artik_yedek_*/
+_fred_backup/
+nul
+
+# Ajan / IDE yerel verisi
+.workbuddy-ai/
+.idea/
 *.iml
 .DS_Store
 Thumbs.db
-app/_fred_backup/
+
+# : IMZALAMA ANAHTARI — ASLA depoya girmemeli.
+# `/keys/` klasorunun yani sira, anahtar yanlislikla baska bir yere
+# kopyalanirsa diye uzanti ve dosya adi bazli kurallar da var.
+/keys/
+*.jks
+*.keystore
+key.properties
+
+# : Overlay kopyasi olan calisma agaci. Kaynak dogru `hstream/files/`
+# oldugu icin `app/` depoda tutulmaz.
+/app/

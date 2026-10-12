@@ -10,6 +10,7 @@ import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/player.dart';
 import 'package:open_tv/exo_player.dart';
 import 'package:open_tv/hstream_detail.dart';
@@ -90,7 +91,7 @@ class _HStreamCardState extends State<HStreamCard> {
       controller: Material.of(context),
       referenceBox: renderBox,
       position: renderBox.size.center(Offset.zero),
-      color: theme.splashColor,
+      color: P.pressOverlay,
       textDirection: Directionality.of(context),
       containedInkWell: true,
       rectCallback: () => Offset.zero & renderBox.size,
@@ -116,7 +117,13 @@ class _HStreamCardState extends State<HStreamCard> {
       _cancelSplash();
       _statesController.update(WidgetState.pressed, false);
     }
-    setState(() {});
+    // : ODAK KASMASI DUZELTMESI — burada `setState(() {})` VARDI.
+    // Odak kenarligi zaten `_statesController` uzerinden
+    // `ValueListenableBuilder` ile tazeleniyor (InkWell focus durumunu
+    // controller'a yazar). Dolayisiyla `setState` GEREKSIZDI ve her odak
+    // degisiminde TUM kart alt agacini (Material + Ink + Stack + gorsel)
+    // yeniden kuruyordu. TV'de kumanda ile gezinirken bu, kare basina
+    // tam rebuild demekti. Artik yalnizca ilgili builder tazelenir.
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -293,19 +300,9 @@ class _HStreamCardState extends State<HStreamCard> {
   }
 
   // Tur bazli yedek gradyan (kapak gorseli yoksa)
-  List<Color> _yedekRenkler() {
-    switch (widget.channel.mediaType) {
-      case MediaType.movie:
-        return const [Color(0xFF3D4466), Color(0xFF232840)];
-      case MediaType.serie:
-      case MediaType.season:
-        return const [Color(0xFF4A3B5A), Color(0xFF282035)];
-      case MediaType.livestream:
-        return const [Color(0xFF2A2E47), Color(0xFF161824)];
-      default:
-        return const [Color(0xFF39415C), Color(0xFF1F2436)];
-    }
-  }
+  /// Görsel yüklenene kadar kullanılan yer tutucu gradyanı.
+  /// Tüm medya türleri için aynı — palet tek kaynaktan yönetilir.
+  List<Color> _yedekRenkler() => P.placeholderGrad;
 
   IconData _yedekIkon() {
     switch (widget.channel.mediaType) {
@@ -323,25 +320,32 @@ class _HStreamCardState extends State<HStreamCard> {
 
   @override
   Widget build(BuildContext context) {
-    final odakli = _focusNode.hasFocus && AppMode.isTv;
     final yedek = _yedekRenkler();
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 120),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: odakli ? const Color(0xFFA78BFA) : Colors.transparent,
-          width: odakli ? 2.5 : 0,
-        ),
-        boxShadow: odakli
-            ? const [
-                BoxShadow(
-                  color: Color(0x66A78BFA),
-                  blurRadius: 14,
-                ),
-              ]
-            : null,
-      ),
+    // PERFORMANS: Blur'lu gölge kaldırıldı — her animasyon karesinde yeniden
+    // hesaplanıyordu ve takılmaya yol açıyordu. Odak parlaması artık kenarlıkla.
+    // GERİ BİLDİRİM: Basma efekti artık telefonda da çalışır (önce yalnızca TV
+    // modundaydı) ve karta %97 ölçek ekler.
+    return ValueListenableBuilder<Set<WidgetState>>(
+      valueListenable: _statesController,
+      builder: (context, durumlar, _) {
+        final basili = durumlar.contains(WidgetState.pressed);
+        final odakli = durumlar.contains(WidgetState.focused) && AppMode.isTv;
+        return AnimatedScale(
+          scale: basili ? 0.97 : 1.0,
+          duration: const Duration(milliseconds: 90),
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 110),
+            // foregroundDecoration: kenarlık çizilirken düzeni kaydırmaz.
+            // Kalınlık sabit (2.5), yalnızca RENK animasyonlanır → hem kayma
+            // yok hem de blur'lu gölge yok.
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: odakli ? P.brandLight : Colors.transparent,
+                width: 2.5,
+              ),
+            ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(10),
@@ -354,6 +358,17 @@ class _HStreamCardState extends State<HStreamCard> {
               autofocus: widget.autofocus,
               statesController: _statesController,
               borderRadius: BorderRadius.circular(10),
+              // YUMUSAK HIS: belirgin overlay + haptik geri bildirim.
+              splashColor: P.pressOverlay,
+              highlightColor: P.pressOverlay,
+              focusColor: P.pressOverlay,
+              // : KAYDIRMA HAPTIGI DUZELTMESI — onceden `onTapDown` idi,
+              // yani parmak ekrana DEGDIGI ANDA platform kanalina gidiyordu;
+              // kaydirmaya baslarken bile tetikleniyor ve listede gezinirken
+              // gereksiz titresim + kare gecikmesi uretiyordu. `onTapUp`
+              // gercek dokunus onayini bekler (ayni duzeltme hstream_hub ve
+              // oynaticida da yapildi).
+              onTapUp: (_) => HapticFeedback.selectionClick(),
               onLongPress: favorite,
               onTap: () async => await play(),
               child: Ink(
@@ -368,7 +383,12 @@ class _HStreamCardState extends State<HStreamCard> {
                   fit: StackFit.expand,
                   children: [
                     // Kapak gorseli (varsa)
-                    if (widget.channel.image != null)
+                    // : `kapakVar` kullanilir — `image != null` DEGIL.
+                    // Bos string (`stream_icon: ""`) kapak YOK demektir;
+                    // aksi halde bos URL'li CachedNetworkImage kurulup
+                    // kaydirma sirasinda tekrar tekrar basarisiz yukleme
+                    // denenirdi (canli yayin kasmasinin ana sebebi).
+                    if (widget.channel.kapakVar)
                       CachedNetworkImage(
                         imageUrl: widget.channel.image!,
                         memCacheWidth: 320,
@@ -394,7 +414,7 @@ class _HStreamCardState extends State<HStreamCard> {
                       const Positioned(
                         top: 5,
                         right: 5,
-                        child: Icon(Icons.star, size: 15, color: Colors.amber),
+                        child: Icon(Icons.star_rounded, size: 15, color: Colors.amber),
                       ),
                     // Alt baslik seridi
                     Positioned(
@@ -407,21 +427,26 @@ class _HStreamCardState extends State<HStreamCard> {
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
-                            colors: [Color(0xE60A0A16), Color(0x000A0A16)],
+                            colors: P.scrimGrad,
                           ),
                         ),
                         child: Text(
                           widget.channel.name,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          // : METIN GOLGESI KALDIRILDI (blurRadius 3).
+                          // Kart basina her metin icin ayri bulaniklik
+                          // gecisi (blur pass) hesaplaniyordu; gorunur
+                          // kartlarin sayisiyla carpilinca kaydirma
+                          // sirasinda olculebilir maliyet olusturuyordu.
+                          // Okunabilirlik zaten alttaki `P.scrimGrad`
+                          // perdesinden geliyor - gorsel fark yok denecek
+                          // kadar az, maliyet sifir.
                           style: const TextStyle(
                             fontSize: 10,
                             height: 1.15,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
-                            shadows: [
-                              Shadow(color: Colors.black87, blurRadius: 3),
-                            ],
                           ),
                         ),
                       ),
@@ -433,6 +458,9 @@ class _HStreamCardState extends State<HStreamCard> {
           },
         ),
       ),
+            ),
+          );
+      },
     );
   }
 }

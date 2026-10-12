@@ -14,9 +14,13 @@ import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/utils.dart';
 import 'package:open_tv/native_bridge.dart' as nb;
 import 'package:open_tv/nsfw.dart';
+import 'package:open_tv/player_preferences.dart';
 import 'package:open_tv/son_izlenen.dart';
 import 'package:open_tv/l10n.dart';
 import 'package:open_tv/hstream_hub.dart';
+import 'package:open_tv/hstream_hakkinda.dart';
+import 'package:open_tv/hstream_surum.dart';
+import 'package:open_tv/palet.dart';
 import 'package:open_tv/setup.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:media_kit/media_kit.dart';
@@ -26,8 +30,26 @@ Future<void> main() async {
   if (!Platform.isAndroid) {
     MediaKit.ensureInitialized();
   }
-  final appDir = await getApplicationSupportDirectory();
-  final tempDir = await getApplicationCacheDirectory();
+
+  // PERFORMANS: Bağımsız işler aynı anda başlatılır.
+  // Önceden 8 işlem sırayla bekleniyordu; bu, açılışta siyah ekranı uzatıyordu.
+  // Artık yalnızca gerçekten birbirine bağlı olanlar sırayla çalışır.
+  final appDirF = getApplicationSupportDirectory();
+  final tempDirF = getApplicationCacheDirectory();
+  final nsfwF = Nsfw.yukle();
+  final sonIzlenenF = SonIzlenen.yukle();
+  final dilF = HDil.yukle();
+  // : oynatıcı tercihleri (tampon/altyazı/PiP) — diğer tercihlerle paralel
+  final oynaticiF = PlayerPreferences.yukle();
+  // : sürüm bilgisi (güncelleme denetimi + "yenilikler" için) — paralel
+  final surumF = HSurum.yukle();
+  final touchF = Utils.hasTouchScreen();
+  final tvF = DeviceDetector.isTV();
+
+  final appDir = await appDirF;
+  final tempDir = await tempDirF;
+
+  // Veritabanı: hasSources / getSettings bunu beklemek zorunda.
   try {
     await nb.NativeBridge.instance.initialize(
       gen.InitMessage(dbPath: appDir.path, tempPath: tempDir.path),
@@ -42,13 +64,21 @@ Future<void> main() async {
       );
     }
   }
-  await Nsfw.yukle();
-  await SonIzlenen.yukle();
-  await HDil.yukle();
-  final hasSources = await nb.NativeBridge.instance.hasSources();
-  final settings = await nb.NativeBridge.instance.getSettings();
-  final hasTouchScreen = await Utils.hasTouchScreen();
-  final isTV = await DeviceDetector.isTV();
+
+  // DB hazır — bu ikisi birbirinden bağımsız, paralel çalışır.
+  final hasSourcesF = nb.NativeBridge.instance.hasSources();
+  final settingsF = nb.NativeBridge.instance.getSettings();
+
+  await nsfwF;
+  await sonIzlenenF;
+  await dilF;
+  await oynaticiF;
+  await surumF;
+  final hasSources = await hasSourcesF;
+  final settings = await settingsF;
+  final hasTouchScreen = await touchF;
+  final isTV = await tvF;
+
   runApp(
     MyApp(
       skipSetup: hasSources,
@@ -57,6 +87,44 @@ Future<void> main() async {
       isTV: isTV,
     ),
   );
+
+  // : AÇILIŞ DENETİMLERİ — ilk kare çizildikten SONRA çalışır; açılışı
+  // bekletmez. Sıra: önce "yenilikler" (yalnızca sürüm değiştiyse), sonra
+  // güncelleme denetimi. İkisi üst üste çıkmasın diye yenilikler
+  // gösterildiyse güncelleme sorusu bu açılışta atlanır.
+  WidgetsBinding.instance.addPostFrameCallback((_) => _acilisDenetimleri());
+}
+
+/// : Açılışta "yenilikler" penceresi ve sessiz güncelleme denetimi.
+///
+/// Her adım hata toleranslıdır: ağ yok / DB yok / API kotası dolu olsa bile
+/// uygulama normal açılır. Hiçbir hata kullanıcıya gösterilmez — güncelleme
+/// denetimi "olsa iyi olur" özelliğidir, açılışı riske atmaz.
+Future<void> _acilisDenetimleri() async {
+  // 1) YENİLİKLER — sürüm değiştiyse bir kez gösterilir.
+  try {
+    if (HSurum.surum.isNotEmpty && await HSurum.yenilikGosterilmeli()) {
+      final ctx = MyApp.navigatorKey.currentContext;
+      if (ctx != null && ctx.mounted) {
+        // : önce işaretle — diyalog açılamazsa (ör. kurulum ekranı) bir
+        // sonraki açılışta tekrar tekrar denenmesin.
+        await HSurum.yenilikGoruldu();
+        await yeniliklerDialogGoster(ctx, HSurum.surum);
+      }
+      return;
+    }
+  } catch (_) {}
+
+  // 2) GÜNCELLEME — en fazla 6 saatte bir, yeni sürüm varsa sorulur.
+  try {
+    if (!await HSurum.acilistaDenetlenmeli()) return;
+    final guncelleme = await HSurum.denetle();
+    if (guncelleme == null) return;
+    if (await HSurum.atlandi(guncelleme.surum)) return;
+    final ctx = MyApp.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    await guncellemeDialogGoster(ctx, guncelleme);
+  } catch (_) {}
 }
 
 class MyApp extends StatelessWidget {
@@ -121,70 +189,7 @@ class MyApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF7A52E0),
-          surface: const Color(0xFF0A0A16),
-          brightness: Brightness.dark,
-          surfaceContainer: const Color(0xFF1D1F2F),
-          surfaceContainerHighest: const Color(0xFF2C3344),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: ButtonStyle(
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused) && _showFocusOutline) {
-                return const BorderSide(
-                  color: const Color(0xFFA78BFA), // HStream focus rengi
-                  width: 4,
-                );
-              }
-              return BorderSide.none;
-            }),
-          ),
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: ButtonStyle(
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused) && _showFocusOutline) {
-                return const BorderSide(
-                  color: const Color(0xFFA78BFA), // HStream focus rengi
-                  width: 4,
-                );
-              }
-              return null;
-            }),
-          ),
-        ),
-        iconButtonTheme: IconButtonThemeData(
-          style: ButtonStyle(
-            side: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.focused) && _showFocusOutline) {
-                return const BorderSide(
-                  color: const Color(0xFFA78BFA), // HStream focus rengi
-                  width: 4,
-                );
-              }
-              return null;
-            }),
-          ),
-        ),
-        switchTheme: SwitchThemeData(
-          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.focused) && _showFocusOutline) {
-              return const Color(0xFFA78BFA);
-            }
-            return null;
-          }),
-          trackOutlineWidth: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.focused) && _showFocusOutline) {
-              return 4;
-            }
-            return null;
-          }),
-        ),
-        useMaterial3: true,
-      ),
+      theme: P.tema(showFocusOutline: _showFocusOutline),
       themeMode: ThemeMode.dark,
       debugShowCheckedModeBanner: false,
       home: skipSetup

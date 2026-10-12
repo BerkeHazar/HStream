@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HStream — Android ve Android TV için IPTV oynatıcısı</title>
+<meta name="description" content="Xtream Codes, M3U bağlantısı veya cihazındaki M3U dosyasıyla canlı yayın, film ve dizi izle. Ücretsiz, açık kaynak, reklamsız.">
+<meta name="theme-color" content="#0A0A16">
+<link rel="icon" href="icon.png">
+<meta property="og:title" content="HStream">
+<meta property="og:description" content="Android ve Android TV için IPTV oynatıcısı. Canlı yayınlar, filmler ve diziler tek ekranda.">
+<meta property="og:image" content="screenshots/hub.png">
+<meta property="og:type" content="website">
+<style>
+/* Renkler uygulamanin paletinden (palet.dart) alinmistir; sayfa ile
+   uygulama ayni dili konussun diye burada da ayni degerler kullanilir. */
+:root{
+  --bg:#0A0A16;
+  --surface:#141826;
+  --raised:#1D2130;
+  --high:#2C3344;
+  --outline:rgba(255,255,255,.10);
+  --brand:#6A4FE0;
+  --brand-light:#A78BFA;
+  --brand-dark:#4632C0;
+  --brand-soft:rgba(167,139,250,.16);
+  --t1:#FFFFFF;
+  --t2:#AEB6D6;
+  --t3:#8B93B5;
+  --canli:#1B1B30;  --canli-i:#A78BFA;
+  --film:#251A1A;   --film-i:#F0917A;
+  --dizi:#16202F;   --dizi-i:#7FB3F5;
+  --favori:#241A22; --favori-i:#EE8FB8;
+  --r-card:14px; --r-btn:12px; --r-panel:18px;
+  --wrap:720px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--t1);
+  font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--brand-light)}
+img{max-width:100%;height:auto;display:block}
+:focus-visible{outline:2px solid var(--brand-light);outline-offset:2px;border-radius:6px}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 20px}
+
+/* ---------- ust bar ---------- */
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:18px 0 6px;
+}
+.brand{
+  display:flex;align-items:center;gap:9px;
+  text-decoration:none;font-weight:900;font-size:17px;letter-spacing:.2px;
+}
+.brand img{width:26px;height:26px;border-radius:8px}
+.brand .s{color:var(--brand-light)}
+header nav{display:flex;align-items:center;gap:8px}
+header nav a,header nav button{
+  font:inherit;font-size:13.5px;font-weight:600;
+  color:var(--t2);text-decoration:none;
+  background:var(--raised);border:1px solid var(--outline);
+  border-radius:9px;padding:7px 12px;cursor:pointer;
+  transition:background .15s ease,color .15s ease;
+}
+header nav a:hover,header nav button:hover{background:var(--high);color:var(--t1)}
+
+/* ---------- tanitim ---------- */
+.hero{padding:26px 0 4px}
+.hero .icon{width:76px;height:76px;border-radius:20px;box-shadow:0 10px 30px rgba(106,79,224,.35)}
+.hero h1{
+  font-size:40px;line-height:1.1;margin:20px 0 0;font-weight:900;letter-spacing:-.5px;
+}
+.hero .lead{margin:10px 0 0;font-size:18px;color:var(--t1);font-weight:600}
+.hero .sub{margin:8px 0 0;font-size:15px;color:var(--t2);max-width:52ch}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:13px 20px;border-radius:var(--r-btn);
+  font-size:15px;font-weight:800;text-decoration:none;
+  border:1px solid transparent;
+  transition:transform .12s ease,filter .15s ease,background .15s ease;
+}
+.btn:active{transform:translateY(1px)}
+.btn.primary{
+  color:#fff;
+  background:linear-gradient(135deg,var(--brand),var(--brand-dark));
+  box-shadow:0 8px 22px rgba(106,79,224,.30);
+}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{color:var(--t2);background:var(--raised);border-color:var(--outline)}
+.btn.ghost:hover{color:var(--t1);background:var(--high)}
+.btn svg{width:18px;height:18px}
+.meta{margin:14px 0 0;font-size:13px;color:var(--t3)}
+.chip{
+  display:inline-block;margin-left:8px;padding:3px 9px;border-radius:7px;
+  background:var(--brand-soft);color:var(--brand-light);
+  font-size:12px;font-weight:700;vertical-align:1px;
+}
+
+/* ---------- ekran goruntusu ---------- */
+.shot{margin:34px 0 0;text-align:center}
+/* Telefon ekrani 517x1052; konteyner genisligine yayilirsa sayfayi
+   gereksiz yere uzatiyor. Gercek telefon genisligine yakin tutulur. */
+.shot img{
+  max-width:300px;margin:0 auto;
+  border-radius:var(--r-panel);border:1px solid var(--outline);
+  background:var(--surface);
+}
+.shot figcaption{margin:12px 0 0;font-size:12.5px;color:var(--t3)}
+
+/* ---------- bolumler ---------- */
+section{margin:44px 0 0}
+h2{
+  font-size:12px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--t3);margin:0 0 12px;
+}
+p{margin:0 0 12px}
+p:last-child{margin-bottom:0}
+
+/* Uygulamanin ana ekranindaki satirlarin aynisi: her satirin kendi tonlu
+   dolgusu ve kendi renkli ikonu vardir. */
+.rows{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.row{
+  display:flex;align-items:center;gap:16px;
+  padding:18px;border-radius:var(--r-panel);
+  border:1px solid var(--outline);
+}
+.row .ic{flex:none;width:30px;height:30px;color:inherit}
+.row .ic svg{width:30px;height:30px;display:block}
+.row b{display:block;font-size:17px;font-weight:900;letter-spacing:.3px}
+.row span{display:block;margin-top:3px;font-size:13.5px;color:var(--t3);font-weight:600}
+.r-canli {background:var(--canli);  color:var(--canli-i)}
+.r-film  {background:var(--film);   color:var(--film-i)}
+.r-dizi  {background:var(--dizi);   color:var(--dizi-i)}
+.r-favori{background:var(--favori); color:var(--favori-i)}
+.r-canli b,.r-film b,.r-dizi b,.r-favori b{color:var(--t1)}
+
+/* ---------- kurulum ---------- */
+.steps{list-style:none;counter-reset:s;margin:0;padding:0;display:grid;gap:12px}
+.steps li{
+  counter-increment:s;position:relative;
+  background:var(--surface);border:1px solid var(--outline);
+  border-radius:var(--r-card);padding:16px 18px 16px 56px;
+}
+.steps li::before{
+  content:counter(s);
+  position:absolute;left:16px;top:16px;
+  width:26px;height:26px;border-radius:50%;
+  background:var(--brand-soft);color:var(--brand-light);
+  font-size:13px;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+}
+.steps b{display:block;font-size:15px;font-weight:800;margin-bottom:3px}
+.steps span{font-size:13.5px;color:var(--t2)}
+
+/* ---------- not ---------- */
+.note{
+  background:var(--surface);border:1px solid var(--outline);
+  border-radius:var(--r-panel);padding:18px;
+}
+.note p{font-size:14px;color:var(--t2)}
+/* GitHub'dan gelen yayin notu duz metindir; satir sonlari korunur. */
+.pre{white-space:pre-wrap;word-break:break-word}
+#notes h2 span{text-transform:none;letter-spacing:0;color:var(--brand-light)}
+
+/* ---------- SSS ---------- */
+details{
+  background:var(--surface);border:1px solid var(--outline);
+  border-radius:var(--r-card);padding:0;margin-bottom:10px;
+}
+details summary{
+  cursor:pointer;list-style:none;padding:15px 18px;
+  font-size:14.5px;font-weight:700;color:var(--t1);
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+details summary::-webkit-details-marker{display:none}
+details summary::after{
+  content:"";flex:none;width:8px;height:8px;
+  border-right:2px solid var(--t3);border-bottom:2px solid var(--t3);
+  transform:rotate(45deg);transition:transform .18s ease;
+}
+details[open] summary::after{transform:rotate(-135deg)}
+details p{padding:0 18px 16px;font-size:14px;color:var(--t2)}
+
+/* ---------- alt ---------- */
+footer{
+  margin:52px 0 0;padding:22px 0 40px;
+  border-top:1px solid var(--outline);
+  font-size:13px;color:var(--t3);
+}
+footer .links{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:10px}
+footer a{color:var(--t2);text-decoration:none}
+footer a:hover{color:var(--brand-light);text-decoration:underline}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+@media (max-width:520px){
+  .hero h1{font-size:32px}
+  .hero .lead{font-size:16.5px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <a class="brand" href="./">
+      <img src="icon.png" alt="" width="26" height="26">
+      <span>H<span class="s">Stream</span></span>
+    </a>
+    <nav>
+      <button id="lang" type="button" aria-label="Dili değiştir">EN</button>
+      <a href="https://github.com/BerkeHazar/HStream">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+
+    <section class="hero">
+      <img class="icon" src="icon.png" alt="HStream uygulama simgesi" width="76" height="76">
+      <h1>HStream</h1>
+      <p class="lead" data-en="An IPTV player for Android and Android TV.">Android ve Android TV için IPTV oynatıcısı.</p>
+      <p class="sub" data-en="Connect with Xtream Codes, an M3U URL or an M3U file on your device — live channels, movies and series in one screen.">Xtream Codes, M3U bağlantısı veya cihazındaki M3U dosyasıyla bağlan; canlı yayınlar, filmler ve diziler tek ekranda.</p>
+
+      <div class="cta">
+        <a class="btn primary" id="dl" href="https://github.com/BerkeHazar/HStream/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/></svg>
+          <span data-en="Download APK">APK'yı indir</span>
+        </a>
+        <a class="btn ghost" href="https://github.com/BerkeHazar/HStream">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-6 6 6 6"/><path d="m16 6 6 6-6 6"/></svg>
+          <span data-en="Source code">Kaynak kodu</span>
+        </a>
+      </div>
+
+      <p class="meta">
+        <span data-en="Android 7.0 and up">Android 7.0 ve üzeri</span> ·
+        <span id="size">85 MB</span> ·
+        <span data-en="Free">Ücretsiz</span> · AGPL-3.0
+        <span class="chip" id="ver" hidden></span>
+      </p>
+    </section>
+
+    <figure class="shot">
+      <img src="screenshots/hub.png" alt="HStream ana ekranı: Son İzlenenler ve Canlı TV, Filmler, Diziler, Favoriler girişleri" width="517" height="1052">
+      <figcaption data-en="Home screen — Continue watching and the four entries">Ana ekran — Son İzlenenler ve dört giriş noktası</figcaption>
+    </figure>
+
+    <section>
+      <h2 data-en="What's inside">Ne var içinde</h2>
+      <ul class="rows">
+        <li class="row r-canli">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="13" rx="2.5"/><path d="m8 2.5 4 3.5 4-3.5"/></svg></span>
+          <div>
+            <b data-en="LIVE TV">CANLI TV</b>
+            <span data-en="Channels by category, search and favourites">Kategorilere ayrılmış kanallar, arama ve favoriler</span>
+          </div>
+        </li>
+        <li class="row r-film">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="13" rx="2.5"/><path d="m2 7 3.5-4M9 7l3.5-4M16 7l3.5-4"/></svg></span>
+          <div>
+            <b data-en="MOVIES">FİLMLER</b>
+            <span data-en="Listed by category, with a detail screen">Kategorilere göre listelenir, detay ekranıyla</span>
+          </div>
+        </li>
+        <li class="row r-dizi">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2.5"/><path d="M10 9.2v4.1l3.6-2.05z" fill="currentColor" stroke="none"/><path d="M7 21h10"/></svg></span>
+          <div>
+            <b data-en="SERIES">DİZİLER</b>
+            <span data-en="Seasons and episodes, with an episode strip">Sezon ve bölümler, bölüm şeridiyle geçiş</span>
+          </div>
+        </li>
+        <li class="row r-favori">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.6v6.8l5.4-3.4z" fill="currentColor" stroke="none"/></svg></span>
+          <div>
+            <b data-en="PLAYER">OYNATICI</b>
+            <span data-en="Resumes where you left off; D-pad and fullscreen">Kaldığın yerden devam; kumanda ve tam ekran desteği</span>
+          </div>
+        </li>
+        <li class="row r-canli">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2.5"/><rect x="12.5" y="12" width="7" height="5.5" rx="1.5" fill="currentColor" stroke="none"/></svg></span>
+          <div>
+            <b data-en="PICTURE-IN-PICTURE">RESİM İÇİNDE RESİM</b>
+            <span data-en="Live channels included; 10s back/forward for movies and series">Canlı yayınlar dahil; film ve dizilerde 10 sn geri/ileri</span>
+          </div>
+        </li>
+        <li class="row r-dizi">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="7" cy="17" r="2" fill="currentColor" stroke="none"/></svg></span>
+          <div>
+            <b data-en="QUICK SETTINGS">HIZLI AYARLAR</b>
+            <span data-en="Speed, subtitle size, sleep timer, buffer length">Hız, altyazı boyutu, uyku zamanlayıcısı, tampon süresi</span>
+          </div>
+        </li>
+        <li class="row r-favori">
+          <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3.2 2"/><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3 4v4h4"/></svg></span>
+          <div>
+            <b data-en="CONTINUE WATCHING">SON İZLENENLER</b>
+            <span data-en="Type label and the minute you left off">Tür etiketi ve kalınan dakika</span>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 data-en="Install">Kurulum</h2>
+      <ol class="steps">
+        <li>
+          <b data-en="Download the APK">APK'yı indir</b>
+          <span data-en="The button above always points at the latest release.">Yukarıdaki düğme her zaman en son sürüme gider.</span>
+        </li>
+        <li>
+          <b data-en="Allow installing from this source">Bu kaynaktan kuruluma izin ver</b>
+          <span data-en="Android asks the first time. On the phone: Settings → Apps → Special access → Install unknown apps.">Android ilk seferde sorar. Telefonda: Ayarlar → Uygulamalar → Özel erişim → Bilinmeyen uygulamaları yükleme.</span>
+        </li>
+        <li>
+          <b data-en="Open it and add a source">Aç ve kaynağını ekle</b>
+          <span data-en="Enter your Xtream details, an M3U URL, or pick an M3U file from the device.">Xtream bilgilerini, bir M3U bağlantısını ya da cihazdaki M3U dosyasını gir.</span>
+        </li>
+      </ol>
+    </section>
+
+    <section class="note">
+      <h2 data-en="Updates">Güncellemeler</h2>
+      <p data-en="Every release is signed with the same key, so a new version installs straight over the old one — your sources, settings and watch history stay.">Her sürüm aynı anahtarla imzalanır; yeni sürüm eskisinin üstüne kurulur ve kaynakların, ayarların, izleme geçmişin korunur.</p>
+      <p data-en="The app also checks for new versions itself: Settings → About → Check for updates.">Uygulama yeni sürümü kendisi de bildirir: Ayarlar → Hakkında → Güncellemeyi denetle.</p>
+    </section>
+
+    <!-- Yayin aciklamasi (release body) doluysa gosterilir; bos ise
+         bolum tamamen gizli kalir. Metin GitHub'dan geldigi icin
+         duz metin olarak, satir sonlari korunarak cizilir. -->
+    <section id="notes" hidden>
+      <h2><span data-en="What's new in">Yenilikler —</span> <span id="notesVer">v1.0.0</span></h2>
+      <div class="note"><p class="pre" id="notesBody"></p></div>
+    </section>
+
+    <section>
+      <h2 data-en="Questions">Sık sorulan</h2>
+
+      <details>
+        <summary data-en="Play Protect shows a warning">Play Protect uyarı veriyor</summary>
+        <p data-en="Normal for an app installed outside the Play Store. Continue with &quot;Install anyway&quot;.">Play Store dışından kurulan uygulamalarda çıkan standart uyarıdır. &quot;Yine de kur&quot; diyerek devam edebilirsin.</p>
+      </details>
+
+      <details>
+        <summary data-en="Does it update by itself?">Kendiliğinden güncelleniyor mu?</summary>
+        <p data-en="No — Android does not let an app replace itself. HStream tells you when a new version is out and takes you to the file; installing it is one tap.">Hayır — Android bir uygulamanın kendini değiştirmesine izin vermez. HStream yeni sürümü bildirir ve dosyaya yönlendirir; kurmak tek dokunuş.</p>
+      </details>
+
+      <details>
+        <summary data-en="Which sources work?">Hangi kaynaklar çalışıyor?</summary>
+        <p data-en="Xtream Codes, an M3U URL, or an M3U file on your device. HStream does not include any channels or subscription — you use your own provider.">Xtream Codes, M3U bağlantısı ve cihazındaki M3U dosyası. HStream içerik ya da abonelik sağlamaz; kendi sağlayıcını kullanırsın.</p>
+      </details>
+
+      <details>
+        <summary data-en="What does it cost?">Ücretli mi?</summary>
+        <p data-en="Free and open source, with no ads and no accounts. The source code is published under AGPL-3.0.">Ücretsiz ve açık kaynak. Reklam yok, hesap açmak gerekmez. Kaynak kodu AGPL-3.0 ile yayınlanır.</p>
+      </details>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="links">
+      <a href="https://github.com/BerkeHazar/HStream">GitHub</a>
+      <a href="https://github.com/BerkeHazar/HStream/releases" data-en="Releases">Sürümler</a>
+      <!-- : CHANGELOG ve LICENSE'a MUTLAK baglanti. GitHub Pages yalnizca
+           /docs klasorunu yayinlar; "../CHANGELOG.md" oradaki kopyada kirilir. -->
+      <a href="https://github.com/BerkeHazar/HStream/blob/main/CHANGELOG.md" data-en="Release notes">Sürüm notları</a>
+      <a href="https://github.com/BerkeHazar/HStream/blob/main/LICENSE" data-en="License (AGPL-3.0)">Lisans (AGPL-3.0)</a>
+      <a href="https://github.com/Fredolx/fred-tv-mobile">Fred TV</a>
+    </div>
+    <p>HStream · <span data-en="built on top of Fred TV">Fred TV üzerine geliştirildi</span> · AGPL-3.0</p>
+  </footer>
+
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   Bu sayfa STATIK bir dosyadir ama icerigi SABIT DEGILDIR: surum,
+   APK baglantisi, dosya boyutu ve yayin notu her acilista GitHub
+   Releases API'sinden okunur. Yani yeni surum yayinlandiginda bu
+   dosyayi elle guncellemek GEREKMEZ.
+
+   1) Dil degistirici — varsayilan Turkce. Ceviriler HTML icindeki
+      `data-en` niteliklerinde durur; boylece JavaScript kapaliysa da
+      sayfa okunur kalir (Turkce).
+   2) Surum bilgisi — API yaniti 5 dakika boyunca localStorage'da
+      saklanir: sayfayi gezen her kisi API kotasini (saatte 60 istek,
+      IP basina) tuketmesin. Istek basarisiz olursa statik baglanti
+      (/releases/latest) calismaya devam eder, hicbir hata gosterilmez.
+   ------------------------------------------------------------------ */
+(function () {
+  var els = document.querySelectorAll('[data-en]');
+  els.forEach(function (el) { el.dataset.tr = el.textContent; });
+
+  var btn = document.getElementById('lang');
+  var dil = 'tr';
+  btn.addEventListener('click', function () {
+    dil = dil === 'tr' ? 'en' : 'tr';
+    els.forEach(function (el) {
+      el.textContent = dil === 'en' ? el.dataset.en : el.dataset.tr;
+    });
+    document.documentElement.lang = dil;
+    btn.textContent = dil === 'tr' ? 'EN' : 'TR';
+    btn.setAttribute('aria-label',
+      dil === 'tr' ? 'Dili değiştir' : 'Switch language');
+  });
+
+  var depo = 'BerkeHazar/HStream';
+  var dl = document.getElementById('dl');
+  var ver = document.getElementById('ver');
+  var boyut = document.getElementById('size');
+  var onbellek = 'hstream-son-surum';
+  var omur = 5 * 60 * 1000;
+
+  // Gelen veriyi sayfaya uygular. `v` = {surum, apk, boyut, notlar, sayfa}
+  function uygula(v) {
+    if (!v) return;
+    if (v.surum) {
+      ver.textContent = 'v' + v.surum;
+      ver.hidden = false;
+    }
+    if (v.apk) dl.href = v.apk;
+    else if (v.sayfa) dl.href = v.sayfa;
+    if (v.boyut) boyut.textContent = v.boyut;
+    if (v.notlar) {
+      document.getElementById('notesVer').textContent = 'v' + (v.surum || '');
+      document.getElementById('notesBody').textContent = v.notlar;
+      document.getElementById('notes').hidden = false;
+    }
+  }
+
+  // 1) Onbellek taze ise API'ye hic gidilmez.
+  try {
+    var kayit = JSON.parse(localStorage.getItem(onbellek) || 'null');
+    if (kayit && kayit.v && Date.now() - kayit.z < omur) {
+      uygula(kayit.v);
+      return;
+    }
+  } catch (e) { /* localStorage kapali (file://) — sorun degil */ }
+
+  // 2) API'den son surumu oku.
+  fetch('https://api.github.com/repos/' + depo + '/releases/latest', {
+    headers: { Accept: 'application/vnd.github+json' }
+  })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel) return;
+      var surum = String(rel.tag_name || '').replace(/^v/i, '');
+      var ekler = rel.assets || [];
+      var apk = null;
+      for (var i = 0; i < ekler.length; i++) {
+        if (String(ekler[i].name || '').toLowerCase().slice(-4) === '.apk') {
+          apk = ekler[i];
+          break;
+        }
+      }
+      var ozet = {
+        surum: surum,
+        apk: apk ? apk.browser_download_url : null,
+        sayfa: rel.html_url || null,
+        boyut: apk && apk.size
+          ? (apk.size / 1048576).toFixed(0) + ' MB'
+          : null,
+        notlar: String(rel.body || '').trim() || null
+      };
+      uygula(ozet);
+      try {
+        localStorage.setItem(onbellek,
+          JSON.stringify({ z: Date.now(), v: ozet }));
+      } catch (e) { /* kota dolu / kapali — yok say */ }
+    })
+    .catch(function () { /* sessiz: statik baglanti zaten calisiyor */ });
+})();
+</script>
+</body>
+</html>
